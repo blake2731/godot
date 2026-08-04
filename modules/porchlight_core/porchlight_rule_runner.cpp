@@ -1,14 +1,27 @@
 #include "porchlight_rule_runner.h"
 
+#include "core/config/engine.h"
+#include "core/object/callable_method_pointer.h"
 #include "core/object/class_db.h"
 
 #include "porchlight_action.h"
 #include "porchlight_condition.h"
+#include "porchlight_progress.h"
 #include "porchlight_rule.h"
 
-void PorchlightRuleRunner::_notification(int p_what) {
-    if (p_what != NOTIFICATION_READY ||
-            !run_on_ready) {
+PorchlightProgress *
+PorchlightRuleRunner::_get_progress() const {
+    Object *singleton_object =
+            Engine::get_singleton()
+                    ->get_singleton_object(
+                            "PorchlightProgress");
+
+    return Object::cast_to<PorchlightProgress>(
+            singleton_object);
+}
+
+void PorchlightRuleRunner::_connect_progress() {
+    if (!watch_progress) {
         return;
     }
 
@@ -18,7 +31,86 @@ void PorchlightRuleRunner::_notification(int p_what) {
     }
 #endif
 
+    PorchlightProgress *progress =
+            _get_progress();
+
+    if (progress == nullptr) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestone_completed);
+
+    const StringName signal_name =
+            "milestone_completed";
+
+    if (!progress->is_connected(
+                signal_name,
+                callback)) {
+        progress->connect(
+                signal_name,
+                callback);
+    }
+}
+
+void PorchlightRuleRunner::_disconnect_progress() {
+    PorchlightProgress *progress =
+            _get_progress();
+
+    if (progress == nullptr) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestone_completed);
+
+    const StringName signal_name =
+            "milestone_completed";
+
+    if (progress->is_connected(
+                signal_name,
+                callback)) {
+        progress->disconnect(
+                signal_name,
+                callback);
+    }
+}
+
+void PorchlightRuleRunner::_on_milestone_completed(
+        const StringName &p_milestone) {
     evaluate_rule();
+}
+
+void PorchlightRuleRunner::_notification(int p_what) {
+    switch (p_what) {
+        case NOTIFICATION_ENTER_TREE: {
+            _connect_progress();
+        } break;
+
+        case NOTIFICATION_READY: {
+            if (!run_on_ready) {
+                return;
+            }
+
+#ifdef TOOLS_ENABLED
+            if (is_part_of_edited_scene()) {
+                return;
+            }
+#endif
+
+            evaluate_rule();
+        } break;
+
+        case NOTIFICATION_EXIT_TREE: {
+            _disconnect_progress();
+        } break;
+    }
 }
 
 void PorchlightRuleRunner::_bind_methods() {
@@ -39,6 +131,16 @@ void PorchlightRuleRunner::_bind_methods() {
     ClassDB::bind_method(
             D_METHOD("is_run_on_ready"),
             &PorchlightRuleRunner::is_run_on_ready);
+
+    ClassDB::bind_method(
+            D_METHOD(
+                    "set_watch_progress",
+                    "watch_progress"),
+            &PorchlightRuleRunner::set_watch_progress);
+
+    ClassDB::bind_method(
+            D_METHOD("is_watch_progress"),
+            &PorchlightRuleRunner::is_watch_progress);
 
     ClassDB::bind_method(
             D_METHOD("set_run_once", "run_once"),
@@ -87,6 +189,13 @@ void PorchlightRuleRunner::_bind_methods() {
     ADD_PROPERTY(
             PropertyInfo(
                     Variant::BOOL,
+                    "watch_progress"),
+            "set_watch_progress",
+            "is_watch_progress");
+
+    ADD_PROPERTY(
+            PropertyInfo(
+                    Variant::BOOL,
                     "run_once"),
             "set_run_once",
             "is_run_once");
@@ -128,6 +237,29 @@ bool PorchlightRuleRunner::is_run_on_ready() const {
     return run_on_ready;
 }
 
+void PorchlightRuleRunner::set_watch_progress(
+        bool p_watch_progress) {
+    if (watch_progress == p_watch_progress) {
+        return;
+    }
+
+    watch_progress = p_watch_progress;
+
+    if (!is_inside_tree()) {
+        return;
+    }
+
+    if (watch_progress) {
+        _connect_progress();
+    } else {
+        _disconnect_progress();
+    }
+}
+
+bool PorchlightRuleRunner::is_watch_progress() const {
+    return watch_progress;
+}
+
 void PorchlightRuleRunner::set_run_once(
         bool p_run_once) {
     run_once = p_run_once;
@@ -158,11 +290,15 @@ bool PorchlightRuleRunner::evaluate_rule() {
     const bool condition_met =
             rule->is_condition_met();
 
-    const bool action_changed =
-            rule->evaluate_and_execute();
+    if (run_once && condition_met) {
+        has_run = true;
+    }
+
+    bool action_changed = false;
 
     if (condition_met) {
-        has_run = true;
+        action_changed =
+                rule->evaluate_and_execute();
     }
 
     emit_signal(
