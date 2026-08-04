@@ -20,8 +20,15 @@ class PorchlightRuleRunner : public Node {
     void _connect_progress();
     void _disconnect_progress();
 
+    void _evaluate_for_milestone(
+            const StringName &p_milestone);
+
     void _on_milestone_completed(
             const StringName &p_milestone);
+
+    void _on_milestone_removed(
+            const StringName &p_milestone);
+
     void _on_milestones_cleared();
 
 protected:
