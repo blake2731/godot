@@ -38,11 +38,17 @@ void PorchlightRuleRunner::_connect_progress() {
         return;
     }
 
-    const Callable milestone_callback =
+    const Callable completed_callback =
             callable_mp(
                     this,
                     &PorchlightRuleRunner::
                             _on_milestone_completed);
+
+    const Callable removed_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestone_removed);
 
     const Callable cleared_callback =
             callable_mp(
@@ -52,10 +58,18 @@ void PorchlightRuleRunner::_connect_progress() {
 
     if (!progress->is_connected(
                 "milestone_completed",
-                milestone_callback)) {
+                completed_callback)) {
         progress->connect(
                 "milestone_completed",
-                milestone_callback);
+                completed_callback);
+    }
+
+    if (!progress->is_connected(
+                "milestone_removed",
+                removed_callback)) {
+        progress->connect(
+                "milestone_removed",
+                removed_callback);
     }
 
     if (!progress->is_connected(
@@ -75,11 +89,17 @@ void PorchlightRuleRunner::_disconnect_progress() {
         return;
     }
 
-    const Callable milestone_callback =
+    const Callable completed_callback =
             callable_mp(
                     this,
                     &PorchlightRuleRunner::
                             _on_milestone_completed);
+
+    const Callable removed_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestone_removed);
 
     const Callable cleared_callback =
             callable_mp(
@@ -89,10 +109,18 @@ void PorchlightRuleRunner::_disconnect_progress() {
 
     if (progress->is_connected(
                 "milestone_completed",
-                milestone_callback)) {
+                completed_callback)) {
         progress->disconnect(
                 "milestone_completed",
-                milestone_callback);
+                completed_callback);
+    }
+
+    if (progress->is_connected(
+                "milestone_removed",
+                removed_callback)) {
+        progress->disconnect(
+                "milestone_removed",
+                removed_callback);
     }
 
     if (progress->is_connected(
@@ -104,7 +132,7 @@ void PorchlightRuleRunner::_disconnect_progress() {
     }
 }
 
-void PorchlightRuleRunner::_on_milestone_completed(
+void PorchlightRuleRunner::_evaluate_for_milestone(
         const StringName &p_milestone) {
     if (rule.is_null()) {
         return;
@@ -122,6 +150,16 @@ void PorchlightRuleRunner::_on_milestone_completed(
     }
 
     evaluate_rule();
+}
+
+void PorchlightRuleRunner::_on_milestone_completed(
+        const StringName &p_milestone) {
+    _evaluate_for_milestone(p_milestone);
+}
+
+void PorchlightRuleRunner::_on_milestone_removed(
+        const StringName &p_milestone) {
+    _evaluate_for_milestone(p_milestone);
 }
 
 void PorchlightRuleRunner::_on_milestones_cleared() {
