@@ -1,9 +1,9 @@
-short_name = "godot"
-name = "Godot Engine"
+short_name = "porchlight"
+name = "Porchlight Engine"
 major = 4
 minor = 6
 patch = 3
-status = "stable"
-module_config = ""
-website = "https://godotengine.org"
+status = "dev"
+module_config = ".porchlight"
+website = "https://github.com/blake2731/godot"
 docs = "4.6"
