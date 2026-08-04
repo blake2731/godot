@@ -13,16 +13,26 @@ class PorchlightRule : public Resource {
 
     bool enabled = true;
 
+    void _connect_condition();
+    void _disconnect_condition();
+
+    void _connect_action();
+    void _disconnect_action();
+
+    void _on_nested_resource_changed();
+
 protected:
     static void _bind_methods();
 
 public:
     void set_condition(
             const Ref<PorchlightCondition> &p_condition);
+
     Ref<PorchlightCondition> get_condition() const;
 
     void set_action(
             const Ref<PorchlightAction> &p_action);
+
     Ref<PorchlightAction> get_action() const;
 
     void set_enabled(bool p_enabled);
