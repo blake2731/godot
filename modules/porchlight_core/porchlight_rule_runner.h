@@ -17,11 +17,16 @@ class PorchlightRuleRunner : public Node {
 
     PorchlightProgress *_get_progress() const;
 
+    void _connect_rule();
+    void _disconnect_rule();
+
     void _connect_progress();
     void _disconnect_progress();
 
     void _evaluate_for_milestone(
             const StringName &p_milestone);
+
+    void _on_rule_changed();
 
     void _on_milestone_completed(
             const StringName &p_milestone);

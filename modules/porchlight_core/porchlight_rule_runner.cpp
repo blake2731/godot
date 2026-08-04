@@ -20,6 +20,46 @@ PorchlightRuleRunner::_get_progress() const {
             singleton_object);
 }
 
+void PorchlightRuleRunner::_connect_rule() {
+    if (rule.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_rule_changed);
+
+    if (!rule->is_connected(
+                "changed",
+                callback)) {
+        rule->connect(
+                "changed",
+                callback);
+    }
+}
+
+void PorchlightRuleRunner::_disconnect_rule() {
+    if (rule.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_rule_changed);
+
+    if (rule->is_connected(
+                "changed",
+                callback)) {
+        rule->disconnect(
+                "changed",
+                callback);
+    }
+}
+
 void PorchlightRuleRunner::_connect_progress() {
     if (!watch_progress) {
         return;
@@ -150,6 +190,11 @@ void PorchlightRuleRunner::_evaluate_for_milestone(
     }
 
     evaluate_rule();
+}
+
+void PorchlightRuleRunner::_on_rule_changed() {
+    has_run = false;
+    update_configuration_warnings();
 }
 
 void PorchlightRuleRunner::_on_milestone_completed(
@@ -296,9 +341,12 @@ void PorchlightRuleRunner::set_rule(
         return;
     }
 
+    _disconnect_rule();
+
     rule = p_rule;
     has_run = false;
 
+    _connect_rule();
     update_configuration_warnings();
 }
 
