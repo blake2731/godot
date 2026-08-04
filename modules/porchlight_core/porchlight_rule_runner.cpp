@@ -2,6 +2,8 @@
 
 #include "core/object/class_db.h"
 
+#include "porchlight_action.h"
+#include "porchlight_condition.h"
 #include "porchlight_rule.h"
 
 void PorchlightRuleRunner::_notification(int p_what) {
@@ -62,6 +64,10 @@ void PorchlightRuleRunner::_bind_methods() {
             D_METHOD("get_description"),
             &PorchlightRuleRunner::get_description);
 
+    ClassDB::bind_method(
+            D_METHOD("get_setup_warnings"),
+            &PorchlightRuleRunner::get_setup_warnings);
+
     ADD_PROPERTY(
             PropertyInfo(
                     Variant::OBJECT,
@@ -104,6 +110,8 @@ void PorchlightRuleRunner::set_rule(
 
     rule = p_rule;
     has_run = false;
+
+    update_configuration_warnings();
 }
 
 Ref<PorchlightRule>
@@ -180,4 +188,65 @@ String PorchlightRuleRunner::get_description() const {
     }
 
     return rule->get_description();
+}
+
+PackedStringArray
+PorchlightRuleRunner::get_setup_warnings() const {
+    PackedStringArray warnings;
+
+    if (rule.is_null()) {
+        warnings.push_back(
+                "Assign a PorchlightRule to this runner.");
+
+        return warnings;
+    }
+
+    const Ref<PorchlightCondition> condition =
+            rule->get_condition();
+
+    if (condition.is_null()) {
+        warnings.push_back(
+                "The assigned rule needs a "
+                "PorchlightCondition.");
+    } else if (
+            String(condition->get_milestone())
+                    .strip_edges()
+                    .is_empty()) {
+        warnings.push_back(
+                "The assigned condition needs a "
+                "milestone.");
+    }
+
+    const Ref<PorchlightAction> action =
+            rule->get_action();
+
+    if (action.is_null()) {
+        warnings.push_back(
+                "The assigned rule needs a "
+                "PorchlightAction.");
+    } else if (!action->is_valid()) {
+        warnings.push_back(
+                "The assigned action needs a milestone.");
+    }
+
+    return warnings;
+}
+
+PackedStringArray
+PorchlightRuleRunner::get_configuration_warnings()
+        const {
+    PackedStringArray warnings =
+            Node::get_configuration_warnings();
+
+    const PackedStringArray setup_warnings =
+            get_setup_warnings();
+
+    for (int index = 0;
+            index < setup_warnings.size();
+            index++) {
+        warnings.push_back(
+                setup_warnings[index]);
+    }
+
+    return warnings;
 }

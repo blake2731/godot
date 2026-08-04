@@ -33,4 +33,9 @@ public:
     void reset_runner();
 
     String get_description() const;
+
+    PackedStringArray get_setup_warnings() const;
+
+    PackedStringArray get_configuration_warnings()
+            const override;
 };
