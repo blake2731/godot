@@ -19,8 +19,14 @@ protected:
 public:
     PorchlightProgress();
 
-    bool complete_milestone(const StringName &p_milestone);
-    bool is_complete(const StringName &p_milestone) const;
+    bool complete_milestone(
+            const StringName &p_milestone);
+
+    bool remove_milestone(
+            const StringName &p_milestone);
+
+    bool is_complete(
+            const StringName &p_milestone) const;
 
     Array get_completed_milestones() const;
     int get_completed_count() const;
