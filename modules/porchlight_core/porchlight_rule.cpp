@@ -1,13 +1,100 @@
 #include "porchlight_rule.h"
 
+#include "core/object/callable_method_pointer.h"
 #include "core/object/class_db.h"
 
 #include "porchlight_action.h"
 #include "porchlight_condition.h"
 
+void PorchlightRule::_connect_condition() {
+    if (condition.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRule::
+                            _on_nested_resource_changed);
+
+    if (!condition->is_connected(
+                "changed",
+                callback)) {
+        condition->connect(
+                "changed",
+                callback);
+    }
+}
+
+void PorchlightRule::_disconnect_condition() {
+    if (condition.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRule::
+                            _on_nested_resource_changed);
+
+    if (condition->is_connected(
+                "changed",
+                callback)) {
+        condition->disconnect(
+                "changed",
+                callback);
+    }
+}
+
+void PorchlightRule::_connect_action() {
+    if (action.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRule::
+                            _on_nested_resource_changed);
+
+    if (!action->is_connected(
+                "changed",
+                callback)) {
+        action->connect(
+                "changed",
+                callback);
+    }
+}
+
+void PorchlightRule::_disconnect_action() {
+    if (action.is_null()) {
+        return;
+    }
+
+    const Callable callback =
+            callable_mp(
+                    this,
+                    &PorchlightRule::
+                            _on_nested_resource_changed);
+
+    if (action->is_connected(
+                "changed",
+                callback)) {
+        action->disconnect(
+                "changed",
+                callback);
+    }
+}
+
+void PorchlightRule::_on_nested_resource_changed() {
+    emit_changed();
+}
+
 void PorchlightRule::_bind_methods() {
     ClassDB::bind_method(
-            D_METHOD("set_condition", "condition"),
+            D_METHOD(
+                    "set_condition",
+                    "condition"),
             &PorchlightRule::set_condition);
 
     ClassDB::bind_method(
@@ -15,7 +102,9 @@ void PorchlightRule::_bind_methods() {
             &PorchlightRule::get_condition);
 
     ClassDB::bind_method(
-            D_METHOD("set_action", "action"),
+            D_METHOD(
+                    "set_action",
+                    "action"),
             &PorchlightRule::set_action);
 
     ClassDB::bind_method(
@@ -23,7 +112,9 @@ void PorchlightRule::_bind_methods() {
             &PorchlightRule::get_action);
 
     ClassDB::bind_method(
-            D_METHOD("set_enabled", "enabled"),
+            D_METHOD(
+                    "set_enabled",
+                    "enabled"),
             &PorchlightRule::set_enabled);
 
     ClassDB::bind_method(
@@ -40,7 +131,8 @@ void PorchlightRule::_bind_methods() {
 
     ClassDB::bind_method(
             D_METHOD("evaluate_and_execute"),
-            &PorchlightRule::evaluate_and_execute);
+            &PorchlightRule::
+                    evaluate_and_execute);
 
     ClassDB::bind_method(
             D_METHOD("get_description"),
@@ -88,7 +180,11 @@ void PorchlightRule::set_condition(
         return;
     }
 
+    _disconnect_condition();
+
     condition = p_condition;
+
+    _connect_condition();
     emit_changed();
 }
 
@@ -103,7 +199,11 @@ void PorchlightRule::set_action(
         return;
     }
 
+    _disconnect_action();
+
     action = p_action;
+
+    _connect_action();
     emit_changed();
 }
 
@@ -126,7 +226,8 @@ bool PorchlightRule::is_enabled() const {
 }
 
 bool PorchlightRule::is_valid() const {
-    if (condition.is_null() || action.is_null()) {
+    if (condition.is_null() ||
+            action.is_null()) {
         return false;
     }
 
@@ -168,7 +269,8 @@ bool PorchlightRule::evaluate_and_execute() {
     bool action_changed = false;
 
     if (condition_met) {
-        action_changed = action->execute();
+        action_changed =
+                action->execute();
     }
 
     emit_signal(
@@ -184,7 +286,8 @@ String PorchlightRule::get_description() const {
         return "Rule disabled.";
     }
 
-    if (condition.is_null() && action.is_null()) {
+    if (condition.is_null() &&
+            action.is_null()) {
         return "Rule has no condition or action.";
     }
 
