@@ -38,21 +38,32 @@ void PorchlightRuleRunner::_connect_progress() {
         return;
     }
 
-    const Callable callback =
+    const Callable milestone_callback =
             callable_mp(
                     this,
                     &PorchlightRuleRunner::
                             _on_milestone_completed);
 
-    const StringName signal_name =
-            "milestone_completed";
+    const Callable cleared_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestones_cleared);
 
     if (!progress->is_connected(
-                signal_name,
-                callback)) {
+                "milestone_completed",
+                milestone_callback)) {
         progress->connect(
-                signal_name,
-                callback);
+                "milestone_completed",
+                milestone_callback);
+    }
+
+    if (!progress->is_connected(
+                "milestones_cleared",
+                cleared_callback)) {
+        progress->connect(
+                "milestones_cleared",
+                cleared_callback);
     }
 }
 
@@ -64,26 +75,56 @@ void PorchlightRuleRunner::_disconnect_progress() {
         return;
     }
 
-    const Callable callback =
+    const Callable milestone_callback =
             callable_mp(
                     this,
                     &PorchlightRuleRunner::
                             _on_milestone_completed);
 
-    const StringName signal_name =
-            "milestone_completed";
+    const Callable cleared_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_milestones_cleared);
 
     if (progress->is_connected(
-                signal_name,
-                callback)) {
+                "milestone_completed",
+                milestone_callback)) {
         progress->disconnect(
-                signal_name,
-                callback);
+                "milestone_completed",
+                milestone_callback);
+    }
+
+    if (progress->is_connected(
+                "milestones_cleared",
+                cleared_callback)) {
+        progress->disconnect(
+                "milestones_cleared",
+                cleared_callback);
     }
 }
 
 void PorchlightRuleRunner::_on_milestone_completed(
         const StringName &p_milestone) {
+    if (rule.is_null()) {
+        return;
+    }
+
+    const Ref<PorchlightCondition> condition =
+            rule->get_condition();
+
+    if (condition.is_null()) {
+        return;
+    }
+
+    if (condition->get_milestone() != p_milestone) {
+        return;
+    }
+
+    evaluate_rule();
+}
+
+void PorchlightRuleRunner::_on_milestones_cleared() {
     evaluate_rule();
 }
 
@@ -251,6 +292,14 @@ void PorchlightRuleRunner::set_watch_progress(
 
     if (watch_progress) {
         _connect_progress();
+
+#ifdef TOOLS_ENABLED
+        if (is_part_of_edited_scene()) {
+            return;
+        }
+#endif
+
+        evaluate_rule();
     } else {
         _disconnect_progress();
     }

@@ -22,6 +22,7 @@ class PorchlightRuleRunner : public Node {
 
     void _on_milestone_completed(
             const StringName &p_milestone);
+    void _on_milestones_cleared();
 
 protected:
     static void _bind_methods();
