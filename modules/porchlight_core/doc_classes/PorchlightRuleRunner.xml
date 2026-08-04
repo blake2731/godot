@@ -7,6 +7,7 @@ Evaluates a Porchlight rule automatically or on demand.
 A scene node that manages the runtime evaluation of a [PorchlightRule].
 When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when the milestone used by the rule's condition is completed or removed. Clearing all milestones also causes reevaluation.
 When [member run_once] is enabled, a rule whose condition becomes true is not evaluated again until [method reset_runner] is called, the assigned rule is replaced, or the assigned rule or one of its nested resources changes.
+A runner cannot reenter [method evaluate_rule] while an earlier evaluation is still active. This prevents its action and signal callbacks from recursively evaluating the same runner.
 The runner displays editor configuration warnings for missing or incomplete rule resources.
 </description>
 <tutorials>
@@ -17,8 +18,9 @@ The runner displays editor configuration warnings for missing or incomplete rule
 <description>
 Evaluates [member rule] and executes its action if the condition is met.
 Returns [code]true[/code] if the action changed persistent milestone state.
-Returns [code]false[/code] if the rule is missing or invalid, the condition is not met, the action does not change progress, or [member run_once] is enabled and the rule has already run.
+Returns [code]false[/code] if the rule is missing or invalid, the condition is not met, the action does not change progress, [member run_once] is enabled and the rule has already run, or another evaluation is currently active on this runner.
 When [member run_once] is enabled, the runner is marked as having run as soon as a valid rule's condition is met, even if its action does not change progress.
+Calls rejected because another evaluation is active do not emit [signal evaluated].
 </description>
 </method>
 <method name="get_description" qualifiers="const">
@@ -76,7 +78,7 @@ Enabling this property while the node is already inside the scene tree connects 
 <description>
 Emitted when the runner evaluates a rule.
 [param condition_met] indicates whether the assigned condition was met. [param action_changed] indicates whether executing the action changed persistent milestone state.
-An invalid or missing rule emits both values as [code]false[/code].
+An invalid or missing rule emits both values as [code]false[/code]. A recursive evaluation attempt blocked by the reentrancy guard does not emit this signal.
 </description>
 </signal>
 </signals>
