@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PorchlightRule" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<brief_description>
+Combines a Porchlight condition with an action.
+</brief_description>
+<description>
+A reusable rule that evaluates a [PorchlightCondition] and executes a [PorchlightAction] when the condition is met.
+A rule is valid only when both resources are assigned and contain nonempty milestone names.
+Changes made inside the assigned condition or action are propagated through this resource's [signal Resource.changed] signal.
+Use [PorchlightRuleRunner] to evaluate rules automatically when milestone progress changes.
+</description>
+<tutorials>
+</tutorials>
+<methods>
+<method name="evaluate_and_execute">
+<return type="bool" />
+<description>
+Evaluates [member condition] and executes [member action] if the condition is met.
+Returns [code]true[/code] if executing the action changed persistent milestone state.
+Returns [code]false[/code] when the rule is disabled, incomplete, the condition is not met, or the action does not change progress.
+Emits [signal evaluated] after the evaluation attempt.
+</description>
+</method>
+<method name="get_description" qualifiers="const">
+<return type="String" />
+<description>
+Returns a readable description of the rule, including its condition and action.
+Returns a configuration message when the rule is disabled or missing a required resource.
+</description>
+</method>
+<method name="is_condition_met" qualifiers="const">
+<return type="bool" />
+<description>
+Returns [code]true[/code] if the rule is enabled, a condition is assigned, and that condition is currently met.
+This method does not execute [member action].
+</description>
+</method>
+<method name="is_valid" qualifiers="const">
+<return type="bool" />
+<description>
+Returns [code]true[/code] if both [member condition] and [member action] are assigned and contain valid milestone names.
+The value of [member enabled] does not affect structural validity.
+</description>
+</method>
+</methods>
+<members>
+<member name="action" type="PorchlightAction" setter="set_action" getter="get_action">
+The action executed when [member condition] is met.
+Changes made inside this resource are propagated through the rule.
+</member>
+<member name="condition" type="PorchlightCondition" setter="set_condition" getter="get_condition">
+The condition evaluated by this rule.
+Changes made inside this resource are propagated through the rule.
+</member>
+<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">
+If [code]false[/code], the condition is treated as unmet and the action is not executed.
+</member>
+</members>
+<signals>
+<signal name="evaluated">
+<param index="0" name="condition_met" type="bool" />
+<param index="1" name="action_changed" type="bool" />
+<description>
+Emitted after [method evaluate_and_execute] evaluates the rule.
+[param condition_met] indicates whether the condition was met. [param action_changed] indicates whether executing the action changed persistent milestone state.
+</description>
+</signal>
+</signals>
+</class>
