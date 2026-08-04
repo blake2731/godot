@@ -2,6 +2,7 @@
 
 #include "scene/main/node.h"
 
+class PorchlightProgress;
 class PorchlightRule;
 
 class PorchlightRuleRunner : public Node {
@@ -10,8 +11,17 @@ class PorchlightRuleRunner : public Node {
     Ref<PorchlightRule> rule;
 
     bool run_on_ready = true;
+    bool watch_progress = true;
     bool run_once = true;
     bool has_run = false;
+
+    PorchlightProgress *_get_progress() const;
+
+    void _connect_progress();
+    void _disconnect_progress();
+
+    void _on_milestone_completed(
+            const StringName &p_milestone);
 
 protected:
     static void _bind_methods();
@@ -23,6 +33,9 @@ public:
 
     void set_run_on_ready(bool p_run_on_ready);
     bool is_run_on_ready() const;
+
+    void set_watch_progress(bool p_watch_progress);
+    bool is_watch_progress() const;
 
     void set_run_once(bool p_run_once);
     bool is_run_once() const;
