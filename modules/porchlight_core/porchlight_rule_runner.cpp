@@ -409,37 +409,39 @@ bool PorchlightRuleRunner::has_run_rule() const {
 }
 
 bool PorchlightRuleRunner::evaluate_rule() {
+    if (is_evaluating) {
+        return false;
+    }
+
     if (run_once && has_run) {
         return false;
     }
 
-    if (rule.is_null() || !rule->is_valid()) {
-        emit_signal(
-                "evaluated",
-                false,
-                false);
+    is_evaluating = true;
 
-        return false;
-    }
-
-    const bool condition_met =
-            rule->is_condition_met();
-
-    if (run_once && condition_met) {
-        has_run = true;
-    }
-
+    bool condition_met = false;
     bool action_changed = false;
 
-    if (condition_met) {
-        action_changed =
-                rule->evaluate_and_execute();
+    if (rule.is_valid() && rule->is_valid()) {
+        condition_met =
+                rule->is_condition_met();
+
+        if (run_once && condition_met) {
+            has_run = true;
+        }
+
+        if (condition_met) {
+            action_changed =
+                    rule->evaluate_and_execute();
+        }
     }
 
     emit_signal(
             "evaluated",
             condition_met,
             action_changed);
+
+    is_evaluating = false;
 
     return action_changed;
 }

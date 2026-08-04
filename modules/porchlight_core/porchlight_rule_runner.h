@@ -14,6 +14,7 @@ class PorchlightRuleRunner : public Node {
     bool watch_progress = true;
     bool run_once = true;
     bool has_run = false;
+    bool is_evaluating = false;
 
     PorchlightProgress *_get_progress() const;
 
