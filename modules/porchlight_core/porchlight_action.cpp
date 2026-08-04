@@ -7,12 +7,24 @@
 
 void PorchlightAction::_bind_methods() {
     ClassDB::bind_method(
-            D_METHOD("set_milestone", "milestone"),
+            D_METHOD(
+                    "set_milestone",
+                    "milestone"),
             &PorchlightAction::set_milestone);
 
     ClassDB::bind_method(
             D_METHOD("get_milestone"),
             &PorchlightAction::get_milestone);
+
+    ClassDB::bind_method(
+            D_METHOD(
+                    "set_operation",
+                    "operation"),
+            &PorchlightAction::set_operation);
+
+    ClassDB::bind_method(
+            D_METHOD("get_operation"),
+            &PorchlightAction::get_operation);
 
     ClassDB::bind_method(
             D_METHOD("is_valid"),
@@ -26,12 +38,24 @@ void PorchlightAction::_bind_methods() {
             D_METHOD("get_description"),
             &PorchlightAction::get_description);
 
+    BIND_ENUM_CONSTANT(OPERATION_COMPLETE);
+    BIND_ENUM_CONSTANT(OPERATION_REMOVE);
+
     ADD_PROPERTY(
             PropertyInfo(
                     Variant::STRING_NAME,
                     "milestone"),
             "set_milestone",
             "get_milestone");
+
+    ADD_PROPERTY(
+            PropertyInfo(
+                    Variant::INT,
+                    "operation",
+                    PROPERTY_HINT_ENUM,
+                    "Complete,Remove"),
+            "set_operation",
+            "get_operation");
 
     ADD_SIGNAL(
             MethodInfo(
@@ -64,8 +88,25 @@ StringName PorchlightAction::get_milestone() const {
     return milestone;
 }
 
+void PorchlightAction::set_operation(
+        Operation p_operation) {
+    if (operation == p_operation) {
+        return;
+    }
+
+    operation = p_operation;
+    emit_changed();
+}
+
+PorchlightAction::Operation
+PorchlightAction::get_operation() const {
+    return operation;
+}
+
 bool PorchlightAction::is_valid() const {
-    return !String(milestone).strip_edges().is_empty();
+    return !String(milestone)
+                    .strip_edges()
+                    .is_empty();
 }
 
 bool PorchlightAction::execute() {
@@ -89,13 +130,28 @@ bool PorchlightAction::execute() {
         return false;
     }
 
-    const bool changed =
-            progress->complete_milestone(
-                    StringName(milestone_text));
+    const StringName normalized_milestone =
+            milestone_text;
+
+    bool changed = false;
+
+    switch (operation) {
+        case OPERATION_COMPLETE: {
+            changed =
+                    progress->complete_milestone(
+                            normalized_milestone);
+        } break;
+
+        case OPERATION_REMOVE: {
+            changed =
+                    progress->remove_milestone(
+                            normalized_milestone);
+        } break;
+    }
 
     emit_signal(
             "executed",
-            StringName(milestone_text),
+            normalized_milestone,
             changed);
 
     return changed;
@@ -109,6 +165,15 @@ String PorchlightAction::get_description() const {
         return "No milestone selected.";
     }
 
-    return String("Complete milestone: ") +
-            milestone_text;
+    switch (operation) {
+        case OPERATION_COMPLETE:
+            return String("Complete milestone: ") +
+                    milestone_text;
+
+        case OPERATION_REMOVE:
+            return String("Remove milestone: ") +
+                    milestone_text;
+    }
+
+    return "Unknown milestone operation.";
 }
