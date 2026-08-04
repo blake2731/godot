@@ -8,6 +8,7 @@
 #include "porchlight_guide.h"
 #include "porchlight_progress.h"
 #include "porchlight_rule.h"
+#include "porchlight_rule_manager.h"
 #include "porchlight_rule_runner.h"
 
 static PorchlightProgress *porchlight_progress = nullptr;
@@ -24,6 +25,7 @@ void initialize_porchlight_core_module(
     GDREGISTER_CLASS(PorchlightAction);
     GDREGISTER_CLASS(PorchlightRule);
     GDREGISTER_CLASS(PorchlightRuleRunner);
+    GDREGISTER_CLASS(PorchlightRuleManager);
 
     porchlight_progress = memnew(PorchlightProgress);
 

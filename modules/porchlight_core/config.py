@@ -13,6 +13,7 @@ def get_doc_classes():
         "PorchlightGuide",
         "PorchlightProgress",
         "PorchlightRule",
+        "PorchlightRuleManager",
         "PorchlightRuleRunner",
     ]
 
