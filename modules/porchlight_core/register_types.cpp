@@ -3,6 +3,7 @@
 #include "core/config/engine.h"
 #include "core/object/class_db.h"
 
+#include "porchlight_condition.h"
 #include "porchlight_guide.h"
 #include "porchlight_progress.h"
 
@@ -16,6 +17,7 @@ void initialize_porchlight_core_module(
 
     GDREGISTER_CLASS(PorchlightGuide);
     GDREGISTER_CLASS(PorchlightProgress);
+    GDREGISTER_CLASS(PorchlightCondition);
 
     porchlight_progress = memnew(PorchlightProgress);
 
