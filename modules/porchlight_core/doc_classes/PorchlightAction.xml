@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PorchlightAction" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<brief_description>
+Completes or removes a Porchlight milestone.
+</brief_description>
+<description>
+A reusable action that changes persistent milestone state through [PorchlightProgress].
+Use [member operation] to choose whether [member milestone] is completed or removed when [method execute] is called.
+Executing an action that would not change the current milestone state returns [code]false[/code].
+</description>
+<tutorials>
+</tutorials>
+<methods>
+<method name="execute">
+<return type="bool" />
+<description>
+Performs the configured [member operation] on [member milestone].
+Returns [code]true[/code] if the persistent milestone state changed. Returns [code]false[/code] if the milestone is empty, the requested state was already active, or the [PorchlightProgress] singleton is unavailable.
+Emits [signal executed] after a valid milestone operation is attempted.
+</description>
+</method>
+<method name="get_description" qualifiers="const">
+<return type="String" />
+<description>
+Returns a readable description of the configured operation and milestone.
+If no milestone is selected, returns [code]No milestone selected.[/code].
+</description>
+</method>
+<method name="is_valid" qualifiers="const">
+<return type="bool" />
+<description>
+Returns [code]true[/code] if [member milestone] contains a nonempty milestone name.
+</description>
+</method>
+</methods>
+<members>
+<member name="milestone" type="StringName" setter="set_milestone" getter="get_milestone" default="&amp;&quot;&quot;">
+The milestone changed by this action. Leading and trailing whitespace is removed when assigned.
+</member>
+<member name="operation" type="int" setter="set_operation" getter="get_operation" enum="PorchlightAction.Operation" default="0">
+The operation performed by [method execute].
+</member>
+</members>
+<signals>
+<signal name="executed">
+<param index="0" name="milestone" type="StringName" />
+<param index="1" name="changed" type="bool" />
+<description>
+Emitted after an operation is attempted on a valid [param milestone].
+[param changed] is [code]true[/code] when the persistent milestone state changed.
+</description>
+</signal>
+</signals>
+<constants>
+<constant name="OPERATION_COMPLETE" value="0" enum="Operation">
+Completes [member milestone] when [method execute] is called.
+</constant>
+<constant name="OPERATION_REMOVE" value="1" enum="Operation">
+Removes [member milestone] when [method execute] is called.
+</constant>
+</constants>
+</class>

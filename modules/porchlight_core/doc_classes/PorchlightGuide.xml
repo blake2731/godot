@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PorchlightGuide" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<brief_description>
+Provides welcoming and encouraging Porchlight Engine messages.
+</brief_description>
+<description>
+A lightweight helper for presenting Porchlight Engine identity, welcome text, and milestone celebration messages.
+PorchlightGuide does not save or modify player progress. Use [PorchlightProgress] when milestone state must be recorded persistently.
+</description>
+<tutorials>
+</tutorials>
+<methods>
+<method name="celebrate_progress" qualifiers="const">
+<return type="String" />
+<param index="0" name="milestone" type="String" />
+<description>
+Returns an encouraging message celebrating the supplied [param milestone].
+Leading and trailing whitespace is removed from the milestone name. If the resulting name is empty, returns [code]Every step counts.[/code].
+</description>
+</method>
+<method name="get_engine_name" qualifiers="const">
+<return type="String" />
+<description>
+Returns the engine display name [code]Porchlight Engine[/code].
+</description>
+</method>
+<method name="get_welcome_message" qualifiers="const">
+<return type="String" />
+<description>
+Returns the default Porchlight welcome message: [code]Take your time. Every step counts.[/code]
+</description>
+</method>
+</methods>
+</class>

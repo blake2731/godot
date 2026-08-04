@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PorchlightCondition" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<brief_description>
+Tests whether a Porchlight milestone is complete.
+</brief_description>
+<description>
+A reusable condition that checks the persistent milestone state stored by [PorchlightProgress].
+By default, the condition is met when [member milestone] is complete. Enable [member inverted] to make the condition met while the milestone is not complete.
+An empty milestone is always considered invalid and causes [method is_met] to return [code]false[/code].
+</description>
+<tutorials>
+</tutorials>
+<methods>
+<method name="get_description" qualifiers="const">
+<return type="String" />
+<description>
+Returns a readable description of this condition.
+If no milestone is selected, returns [code]No milestone selected.[/code].
+</description>
+</method>
+<method name="is_met" qualifiers="const">
+<return type="bool" />
+<description>
+Returns [code]true[/code] when the configured milestone state satisfies this condition.
+When [member inverted] is [code]false[/code], the milestone must be complete. When [member inverted] is [code]true[/code], the milestone must not be complete.
+Returns [code]false[/code] if [member milestone] is empty or the [PorchlightProgress] singleton is unavailable.
+</description>
+</method>
+</methods>
+<members>
+<member name="inverted" type="bool" setter="set_inverted" getter="is_inverted" default="false">
+If [code]true[/code], the condition is met when [member milestone] is not complete.
+</member>
+<member name="milestone" type="StringName" setter="set_milestone" getter="get_milestone" default="&amp;&quot;&quot;">
+The milestone checked by this condition. Leading and trailing whitespace is removed when assigned.
+</member>
+</members>
+</class>
