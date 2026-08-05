@@ -1,9 +1,9 @@
 #include "porchlight_rule.h"
 
+#include "core/error/error_macros.h"
 #include "core/object/callable_method_pointer.h"
 #include "core/object/class_db.h"
 
-#include "porchlight_action.h"
 #include "porchlight_condition.h"
 
 void PorchlightRule::_connect_condition() {
@@ -46,48 +46,109 @@ void PorchlightRule::_disconnect_condition() {
     }
 }
 
-void PorchlightRule::_connect_action() {
-    if (action.is_null()) {
-        return;
-    }
-
+void PorchlightRule::_connect_actions() {
     const Callable callback =
             callable_mp(
                     this,
                     &PorchlightRule::
                             _on_nested_resource_changed);
 
-    if (!action->is_connected(
-                "changed",
-                callback)) {
-        action->connect(
-                "changed",
-                callback);
+    if (action_mode == ACTION_SINGLE) {
+        if (action.is_null()) {
+            return;
+        }
+
+        if (!action->is_connected(
+                    "changed",
+                    callback)) {
+            action->connect(
+                    "changed",
+                    callback);
+        }
+
+        return;
+    }
+
+    for (int index = 0;
+            index < actions.size();
+            index++) {
+        const Ref<PorchlightAction> current_action =
+                actions[index];
+
+        if (current_action.is_null()) {
+            continue;
+        }
+
+        if (!current_action->is_connected(
+                    "changed",
+                    callback)) {
+            current_action->connect(
+                    "changed",
+                    callback);
+        }
     }
 }
 
-void PorchlightRule::_disconnect_action() {
-    if (action.is_null()) {
-        return;
-    }
-
+void PorchlightRule::_disconnect_actions() {
     const Callable callback =
             callable_mp(
                     this,
                     &PorchlightRule::
                             _on_nested_resource_changed);
 
-    if (action->is_connected(
-                "changed",
-                callback)) {
-        action->disconnect(
-                "changed",
-                callback);
+    if (action_mode == ACTION_SINGLE) {
+        if (action.is_null()) {
+            return;
+        }
+
+        if (action->is_connected(
+                    "changed",
+                    callback)) {
+            action->disconnect(
+                    "changed",
+                    callback);
+        }
+
+        return;
+    }
+
+    for (int index = 0;
+            index < actions.size();
+            index++) {
+        const Ref<PorchlightAction> current_action =
+                actions[index];
+
+        if (current_action.is_null()) {
+            continue;
+        }
+
+        if (current_action->is_connected(
+                    "changed",
+                    callback)) {
+            current_action->disconnect(
+                    "changed",
+                    callback);
+        }
     }
 }
 
 void PorchlightRule::_on_nested_resource_changed() {
     emit_changed();
+}
+
+void PorchlightRule::_validate_property(
+        PropertyInfo &p_property) const {
+    if (p_property.name == "action" &&
+            action_mode != ACTION_SINGLE) {
+        p_property.usage &=
+                ~PROPERTY_USAGE_EDITOR;
+    }
+
+    if (p_property.name == "actions" &&
+            action_mode != ACTION_SEQUENCE) {
+        p_property.usage &=
+                ~PROPERTY_USAGE_EDITOR;
+    }
 }
 
 void PorchlightRule::_bind_methods() {
@@ -110,6 +171,26 @@ void PorchlightRule::_bind_methods() {
     ClassDB::bind_method(
             D_METHOD("get_action"),
             &PorchlightRule::get_action);
+
+    ClassDB::bind_method(
+            D_METHOD(
+                    "set_actions",
+                    "actions"),
+            &PorchlightRule::set_actions);
+
+    ClassDB::bind_method(
+            D_METHOD("get_actions"),
+            &PorchlightRule::get_actions);
+
+    ClassDB::bind_method(
+            D_METHOD(
+                    "set_action_mode",
+                    "action_mode"),
+            &PorchlightRule::set_action_mode);
+
+    ClassDB::bind_method(
+            D_METHOD("get_action_mode"),
+            &PorchlightRule::get_action_mode);
 
     ClassDB::bind_method(
             D_METHOD(
@@ -149,6 +230,15 @@ void PorchlightRule::_bind_methods() {
 
     ADD_PROPERTY(
             PropertyInfo(
+                    Variant::INT,
+                    "action_mode",
+                    PROPERTY_HINT_ENUM,
+                    "Single,Sequence"),
+            "set_action_mode",
+            "get_action_mode");
+
+    ADD_PROPERTY(
+            PropertyInfo(
                     Variant::OBJECT,
                     "action",
                     PROPERTY_HINT_RESOURCE_TYPE,
@@ -158,10 +248,23 @@ void PorchlightRule::_bind_methods() {
 
     ADD_PROPERTY(
             PropertyInfo(
+                    Variant::ARRAY,
+                    "actions",
+                    PROPERTY_HINT_ARRAY_TYPE,
+                    MAKE_RESOURCE_TYPE_HINT(
+                            "PorchlightAction")),
+            "set_actions",
+            "get_actions");
+
+    ADD_PROPERTY(
+            PropertyInfo(
                     Variant::BOOL,
                     "enabled"),
             "set_enabled",
             "is_enabled");
+
+    BIND_ENUM_CONSTANT(ACTION_SINGLE);
+    BIND_ENUM_CONSTANT(ACTION_SEQUENCE);
 
     ADD_SIGNAL(
             MethodInfo(
@@ -199,17 +302,71 @@ void PorchlightRule::set_action(
         return;
     }
 
-    _disconnect_action();
+    if (action_mode == ACTION_SINGLE) {
+        _disconnect_actions();
+    }
 
     action = p_action;
 
-    _connect_action();
+    if (action_mode == ACTION_SINGLE) {
+        _connect_actions();
+    }
+
     emit_changed();
 }
 
 Ref<PorchlightAction>
 PorchlightRule::get_action() const {
     return action;
+}
+
+void PorchlightRule::set_actions(
+        const TypedArray<PorchlightAction> &p_actions) {
+    if (actions == p_actions) {
+        return;
+    }
+
+    if (action_mode == ACTION_SEQUENCE) {
+        _disconnect_actions();
+    }
+
+    actions = p_actions;
+
+    if (action_mode == ACTION_SEQUENCE) {
+        _connect_actions();
+    }
+
+    emit_changed();
+}
+
+TypedArray<PorchlightAction>
+PorchlightRule::get_actions() const {
+    return actions;
+}
+
+void PorchlightRule::set_action_mode(
+        ActionMode p_action_mode) {
+    ERR_FAIL_COND(
+            p_action_mode < ACTION_SINGLE ||
+            p_action_mode > ACTION_SEQUENCE);
+
+    if (action_mode == p_action_mode) {
+        return;
+    }
+
+    _disconnect_actions();
+
+    action_mode = p_action_mode;
+
+    _connect_actions();
+
+    notify_property_list_changed();
+    emit_changed();
+}
+
+PorchlightRule::ActionMode
+PorchlightRule::get_action_mode() const {
+    return action_mode;
 }
 
 void PorchlightRule::set_enabled(bool p_enabled) {
@@ -227,15 +384,32 @@ bool PorchlightRule::is_enabled() const {
 
 bool PorchlightRule::is_valid() const {
     if (condition.is_null() ||
-            action.is_null()) {
+            !condition->is_valid()) {
         return false;
     }
 
-    if (!condition->is_valid()) {
+    if (action_mode == ACTION_SINGLE) {
+        return action.is_valid() &&
+                action->is_valid();
+    }
+
+    if (actions.is_empty()) {
         return false;
     }
 
-    return action->is_valid();
+    for (int index = 0;
+            index < actions.size();
+            index++) {
+        const Ref<PorchlightAction> current_action =
+                actions[index];
+
+        if (current_action.is_null() ||
+                !current_action->is_valid()) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool PorchlightRule::is_condition_met() const {
@@ -247,9 +421,7 @@ bool PorchlightRule::is_condition_met() const {
 }
 
 bool PorchlightRule::evaluate_and_execute() {
-    if (!enabled ||
-            condition.is_null() ||
-            action.is_null()) {
+    if (!enabled || !is_valid()) {
         emit_signal(
                 "evaluated",
                 false,
@@ -264,8 +436,25 @@ bool PorchlightRule::evaluate_and_execute() {
     bool action_changed = false;
 
     if (condition_met) {
-        action_changed =
-                action->execute();
+        if (action_mode == ACTION_SINGLE) {
+            action_changed =
+                    action->execute();
+        } else {
+            for (int index = 0;
+                    index < actions.size();
+                    index++) {
+                const Ref<PorchlightAction>
+                        current_action =
+                                actions[index];
+
+                const bool current_changed =
+                        current_action->execute();
+
+                if (current_changed) {
+                    action_changed = true;
+                }
+            }
+        }
     }
 
     emit_signal(
@@ -281,21 +470,57 @@ String PorchlightRule::get_description() const {
         return "Rule disabled.";
     }
 
-    if (condition.is_null() &&
-            action.is_null()) {
-        return "Rule has no condition or action.";
-    }
-
     if (condition.is_null()) {
+        if (action_mode == ACTION_SINGLE &&
+                action.is_null()) {
+            return "Rule has no condition or action.";
+        }
+
+        if (action_mode == ACTION_SEQUENCE &&
+                actions.is_empty()) {
+            return "Rule has no condition or actions.";
+        }
+
         return "Rule has no condition.";
     }
 
-    if (action.is_null()) {
-        return "Rule has no action.";
+    if (action_mode == ACTION_SINGLE) {
+        if (action.is_null()) {
+            return "Rule has no action.";
+        }
+
+        return String("IF ") +
+                condition->get_description() +
+                " THEN " +
+                action->get_description();
+    }
+
+    if (actions.is_empty()) {
+        return "Rule has no actions.";
+    }
+
+    PackedStringArray action_descriptions;
+
+    for (int index = 0;
+            index < actions.size();
+            index++) {
+        const Ref<PorchlightAction> current_action =
+                actions[index];
+
+        if (current_action.is_null()) {
+            action_descriptions.push_back(
+                    "No action assigned.");
+
+            continue;
+        }
+
+        action_descriptions.push_back(
+                current_action->get_description());
     }
 
     return String("IF ") +
             condition->get_description() +
             " THEN " +
-            action->get_description();
+            String(" THEN ").join(
+                    action_descriptions);
 }

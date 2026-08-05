@@ -6,8 +6,9 @@
 	<description>
 		A scene node that manages an ordered collection of [PorchlightRule] resources.
 Evaluation requests are deferred and combined into processing cycles. Within a cycle, the lowest queued rule index is processed first, and each rule index can be evaluated at most once. Duplicate requests for the same rule are therefore suppressed until the next cycle.
+Each rule may execute one action or an ordered action sequence. A rule contributes one action change to the cycle when at least one action in its active configuration changes persistent milestone state.
 When [member watch_progress] is enabled, milestone changes queue only rules whose conditions inspect the changed milestone. Progress reloads queue the union of rules affected by added and removed milestones, with duplicate rule indexes combined into one deferred cycle.
-Progress changes produced by rule actions can add further matching rules to the active cycle.
+Progress changes produced by any action in a rule sequence can add further matching rules to the active cycle.
 [member max_evaluations_per_cycle] provides a final safeguard against excessive rule chains. Rules still pending when the limit is reached are discarded from that cycle.
 	</description>
 	<tutorials>
@@ -29,7 +30,8 @@ This does not interrupt a rule that is already being evaluated. A deferred proce
 		<method name="get_last_action_change_count" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the number of rule actions that changed persistent milestone state during the most recently completed processing cycle.
+				Returns the number of evaluated rules whose active action configuration changed persistent milestone state during the most recently completed processing cycle.
+A rule with an action sequence contributes at most one to this count, even when several actions in the sequence change progress.
 			</description>
 		</method>
 		<method name="get_last_evaluation_count" qualifiers="const">
@@ -49,7 +51,8 @@ Invalid or empty rule entries count as evaluations when they are processed.
 			<return type="PackedStringArray" />
 			<description>
 				Returns configuration warnings for the manager and its rule entries.
-Warnings identify an empty rule array, empty entries, missing conditions or actions, missing milestone names, and a cycle limit lower than the number of configured rules.
+Warnings identify an empty rule array, empty rule entries, missing or invalid conditions, missing single actions, empty action sequences, and invalid sequence entries.
+Action-sequence warnings identify both the one-based rule entry and action entry indexes.
 These warnings are also displayed as node configuration warnings in the editor.
 			</description>
 		</method>
@@ -82,6 +85,7 @@ Values lower than [code]1[/code] are normalized to [code]1[/code]. If the limit 
 		</member>
 		<member name="rules" type="PorchlightRule[]" setter="set_rules" getter="get_rules" default="[]">
 			The ordered rule entries managed by this node.
+Each rule may use [constant PorchlightRule.ACTION_SINGLE] or [constant PorchlightRule.ACTION_SEQUENCE].
 When every rule is requested together, entries are evaluated from the lowest index to the highest. Replacing this array clears pending evaluations, reconnects nested rule-change observation, and requests a new evaluation when the manager is active at runtime.
 		</member>
 		<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
@@ -102,7 +106,7 @@ Enabling this property while the node is already inside the scene tree connects 
 			<param index="2" name="limit_reached" type="bool" />
 			<description>
 				Emitted after an evaluation cycle finishes.
-[param evaluation_count] is the number of processed rule entries. [param action_change_count] is the number of actions that changed milestone state. [param limit_reached] indicates whether the cycle stopped at [member max_evaluations_per_cycle].
+[param evaluation_count] is the number of processed rule entries. [param action_change_count] is the number of rules for which at least one active action changed milestone state. [param limit_reached] indicates whether the cycle stopped at [member max_evaluations_per_cycle].
 			</description>
 		</signal>
 		<signal name="cycle_limit_reached">
@@ -119,7 +123,7 @@ Enabling this property while the node is already inside the scene tree connects 
 			<param index="2" name="action_changed" type="bool" />
 			<description>
 				Emitted after one rule entry is processed.
-[param rule_index] identifies the entry in [member rules]. [param condition_met] indicates whether its condition was met. [param action_changed] indicates whether its action changed persistent milestone state.
+[param rule_index] identifies the entry in [member rules]. [param condition_met] indicates whether its condition was met. [param action_changed] indicates whether at least one action in its active configuration changed persistent milestone state.
 An empty or invalid rule entry emits both Boolean values as [code]false[/code].
 			</description>
 		</signal>

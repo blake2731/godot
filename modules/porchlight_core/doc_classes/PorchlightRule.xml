@@ -1,70 +1,93 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightRule" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
-<brief_description>
-Combines a Porchlight condition with an action.
-</brief_description>
-<description>
-A reusable rule that evaluates a [PorchlightCondition] and executes a [PorchlightAction] when the condition is met.
-A rule is valid only when both resources are assigned, the condition contains the milestone data required by its match mode, and the action contains a valid milestone name.
-Changes made inside the assigned condition or action are propagated through this resource's [signal Resource.changed] signal.
+	<brief_description>
+		Combines a Porchlight condition with one action or an ordered action sequence.
+	</brief_description>
+	<description>
+		A reusable rule that evaluates a [PorchlightCondition] and executes the action configuration selected by [member action_mode] when the condition is met.
+[constant ACTION_SINGLE] uses [member action]. [constant ACTION_SEQUENCE] executes every entry in [member actions] in array order.
+Sequence execution does not stop when an earlier action changes progress or makes the original condition false. Every configured action is attempted, and the rule reports that progress changed when at least one action changes persistent milestone state.
+A rule is structurally valid only when its condition is valid and its active action configuration is complete. Sequence mode requires at least one action, and every sequence entry must contain a valid [PorchlightAction].
+Changes made inside the assigned condition or any active action resource are propagated through this resource's [signal Resource.changed] signal.
 Use [PorchlightRuleRunner] or [PorchlightRuleManager] to evaluate rules automatically when milestone progress changes.
-</description>
-<tutorials>
-</tutorials>
-<methods>
-<method name="evaluate_and_execute">
-<return type="bool" />
-<description>
-Evaluates [member condition] and executes [member action] if the condition is met.
-Returns [code]true[/code] if executing the action changed persistent milestone state.
-Returns [code]false[/code] when the rule is disabled, incomplete, the condition is not met, or the action does not change progress.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="evaluate_and_execute">
+			<return type="bool" />
+			<description>
+				Evaluates [member condition] and executes the action configuration selected by [member action_mode] if the condition is met.
+In [constant ACTION_SINGLE] mode, [member action] is executed once. In [constant ACTION_SEQUENCE] mode, every entry in [member actions] is executed in array order without short-circuiting.
+Returns [code]true[/code] when at least one executed action changes persistent milestone state.
+Returns [code]false[/code] when the rule is disabled or structurally invalid, the condition is not met, or no executed action changes progress.
 Emits [signal evaluated] after the evaluation attempt.
-</description>
-</method>
-<method name="get_description" qualifiers="const">
-<return type="String" />
-<description>
-Returns a readable description of the rule, including its condition and action.
-Returns a configuration message when the rule is disabled or missing a required resource.
-</description>
-</method>
-<method name="is_condition_met" qualifiers="const">
-<return type="bool" />
-<description>
-Returns [code]true[/code] if the rule is enabled, a condition is assigned, and that condition is currently met.
-This method does not execute [member action].
-</description>
-</method>
-<method name="is_valid" qualifiers="const">
-<return type="bool" />
-<description>
-Returns [code]true[/code] if [member condition] and [member action] are assigned and both resources are structurally valid.
-Condition validity depends on [member PorchlightCondition.match_mode]. Single conditions require [member PorchlightCondition.milestone], while composite conditions require at least one entry in [member PorchlightCondition.milestones].
+			</description>
+		</method>
+		<method name="get_description" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a readable description of the condition and active action configuration.
+Sequence action descriptions are joined in configured order. A configuration message is returned when the rule is disabled or missing a required condition or active action.
+			</description>
+		</method>
+		<method name="is_condition_met" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the rule is enabled, a condition is assigned, and that condition is currently met.
+This method does not validate or execute [member action] or [member actions].
+			</description>
+		</method>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns whether the condition and active action configuration are structurally valid.
+The condition must be assigned and valid. [constant ACTION_SINGLE] requires one valid [member action]. [constant ACTION_SEQUENCE] requires a nonempty [member actions] array in which every entry is assigned and valid.
 The value of [member enabled] does not affect structural validity.
-</description>
-</method>
-</methods>
-<members>
-<member name="action" type="PorchlightAction" setter="set_action" getter="get_action">
-The action executed when [member condition] is met.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="action" type="PorchlightAction" setter="set_action" getter="get_action">
+			The action executed in [constant ACTION_SINGLE] mode.
+This property is hidden in the Inspector and ignored during validation and execution while [member action_mode] is [constant ACTION_SEQUENCE]. Its value is retained when modes change.
+Changes made inside this resource are propagated through the rule only while single-action mode is active.
+		</member>
+		<member name="action_mode" type="int" setter="set_action_mode" getter="get_action_mode" enum="PorchlightRule.ActionMode" default="0">
+			Selects whether the rule executes [member action] or the ordered [member actions] sequence.
+Changing this property updates the Inspector without clearing the inactive action configuration. Existing serialized rules that do not specify this property use [constant ACTION_SINGLE].
+		</member>
+		<member name="actions" type="PorchlightAction[]" setter="set_actions" getter="get_actions" default="[]">
+			The ordered actions executed in [constant ACTION_SEQUENCE] mode.
+Every entry must be assigned and structurally valid. Entries execute in array order, duplicate action resources are permitted, and each occurrence is executed.
+This property is hidden in the Inspector and ignored during validation and execution while [member action_mode] is [constant ACTION_SINGLE]. Its value is retained when modes change.
+Changes made inside these resources are propagated through the rule only while sequence mode is active. A shared resource referenced more than once still emits only one rule change notification per resource change.
+		</member>
+		<member name="condition" type="PorchlightCondition" setter="set_condition" getter="get_condition">
+			The single or composite condition evaluated by this rule.
 Changes made inside this resource are propagated through the rule.
-</member>
-<member name="condition" type="PorchlightCondition" setter="set_condition" getter="get_condition">
-The single or composite condition evaluated by this rule.
-Changes made inside this resource are propagated through the rule.
-</member>
-<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">
-If [code]false[/code], the condition is treated as unmet and the action is not executed.
-</member>
-</members>
-<signals>
-<signal name="evaluated">
-<param index="0" name="condition_met" type="bool" />
-<param index="1" name="action_changed" type="bool" />
-<description>
-Emitted after [method evaluate_and_execute] evaluates the rule.
-[param condition_met] indicates whether the condition was met. [param action_changed] indicates whether executing the action changed persistent milestone state.
-</description>
-</signal>
-</signals>
+		</member>
+		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">
+			If [code]false[/code], the condition is treated as unmet and no action is executed.
+		</member>
+	</members>
+	<signals>
+		<signal name="evaluated">
+			<param index="0" name="condition_met" type="bool" />
+			<param index="1" name="action_changed" type="bool" />
+			<description>
+				Emitted after [method evaluate_and_execute] evaluates the rule.
+[param condition_met] indicates whether the condition was met. [param action_changed] indicates whether at least one executed action changed persistent milestone state.
+A disabled or structurally invalid rule emits both values as [code]false[/code].
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="ACTION_SINGLE" value="0" enum="ActionMode">
+			Executes the single [member action] when the condition is met.
+		</constant>
+		<constant name="ACTION_SEQUENCE" value="1" enum="ActionMode">
+			Executes every entry in [member actions] in configured order when the condition is met.
+		</constant>
+	</constants>
 </class>

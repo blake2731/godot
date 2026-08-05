@@ -905,17 +905,61 @@ PorchlightRuleManager::get_setup_warnings() const {
                     "one milestone.");
         }
 
-        const Ref<PorchlightAction> action =
-                current_rule->get_action();
+        if (current_rule->get_action_mode() ==
+                PorchlightRule::ACTION_SINGLE) {
+            const Ref<PorchlightAction> action =
+                    current_rule->get_action();
 
-        if (action.is_null()) {
+            if (action.is_null()) {
+                warnings.push_back(
+                        entry_name +
+                        " needs a PorchlightAction.");
+            } else if (!action->is_valid()) {
+                warnings.push_back(
+                        entry_name +
+                        " action needs at least "
+                        "one milestone.");
+            }
+
+            continue;
+        }
+
+        const TypedArray<PorchlightAction> actions =
+                current_rule->get_actions();
+
+        if (actions.is_empty()) {
             warnings.push_back(
                     entry_name +
-                    " needs a PorchlightAction.");
-        } else if (!action->is_valid()) {
-            warnings.push_back(
+                    " needs at least one "
+                    "PorchlightAction in its sequence.");
+
+            continue;
+        }
+
+        for (int action_index = 0;
+                action_index < actions.size();
+                action_index++) {
+            const Ref<PorchlightAction> current_action =
+                    actions[action_index];
+
+            const String action_entry_name =
                     entry_name +
-                    " action needs a milestone.");
+                    String(" action sequence entry ") +
+                    itos(action_index + 1);
+
+            if (current_action.is_null()) {
+                warnings.push_back(
+                        action_entry_name +
+                        " is empty.");
+
+                continue;
+            }
+
+            if (!current_action->is_valid()) {
+                warnings.push_back(
+                        action_entry_name +
+                        " needs at least one milestone.");
+            }
         }
     }
 

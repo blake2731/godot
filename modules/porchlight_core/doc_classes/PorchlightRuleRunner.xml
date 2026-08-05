@@ -8,9 +8,10 @@
 When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when any milestone referenced by the rule's condition is completed, removed, or changed by [method PorchlightProgress.load_progress]. Clearing all milestones also causes reevaluation.
 Single conditions reference [member PorchlightCondition.milestone]. Composite conditions reference every entry in [member PorchlightCondition.milestones].
 One progress reload causes at most one runner evaluation, even when several added or removed milestones are referenced by the condition. Reload changes unrelated to the condition do not cause evaluation.
-When [member run_once] is enabled, a rule whose condition becomes true is not evaluated again until [method reset_runner] is called, the assigned rule is replaced, or the assigned rule or one of its nested resources changes.
+Rules may execute either one action or an ordered action sequence. The runner reports [code]action_changed[/code] as [code]true[/code] when at least one action executed by the rule changes persistent milestone state.
+When [member run_once] is enabled, a rule whose condition becomes true is not evaluated again until [method reset_runner] is called, the assigned rule is replaced, or the assigned rule or one of its active nested resources changes.
 A runner cannot reenter [method evaluate_rule] while an earlier evaluation is still active. This prevents its action and signal callbacks from recursively evaluating the same runner.
-The runner displays editor configuration warnings for missing or incomplete rule resources.
+The runner displays editor configuration warnings for missing or incomplete conditions, single actions, and action-sequence entries.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -18,17 +19,17 @@ The runner displays editor configuration warnings for missing or incomplete rule
 		<method name="evaluate_rule">
 			<return type="bool" />
 			<description>
-				Evaluates [member rule] and executes its action if the condition is met.
-Returns [code]true[/code] if the action changed persistent milestone state.
-Returns [code]false[/code] if the rule is missing or invalid, the condition is not met, the action does not change progress, [member run_once] is enabled and the rule has already run, or another evaluation is currently active on this runner.
-When [member run_once] is enabled, the runner is marked as having run as soon as a valid rule's condition is met, even if its action does not change progress.
+				Evaluates [member rule] and executes its active action configuration if the condition is met.
+Returns [code]true[/code] if at least one action executed by the rule changed persistent milestone state.
+Returns [code]false[/code] if the rule is missing or invalid, the condition is not met, no action changes progress, [member run_once] is enabled and the rule has already run, or another evaluation is currently active on this runner.
+When [member run_once] is enabled, the runner is marked as having run as soon as a valid rule's condition is met, even if none of its actions change progress.
 Calls rejected because another evaluation is active do not emit [signal evaluated].
 			</description>
 		</method>
 		<method name="get_description" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns a readable description of the assigned rule.
+				Returns a readable description of the assigned rule, including its active single action or ordered action sequence.
 Returns [code]No rule assigned.[/code] when no rule is configured. If [member run_once] is enabled and the rule has already run, the description is prefixed with [code]Rule already ran: [/code].
 			</description>
 		</method>
@@ -36,7 +37,8 @@ Returns [code]No rule assigned.[/code] when no rule is configured. If [member ru
 			<return type="PackedStringArray" />
 			<description>
 				Returns configuration warnings for the assigned rule.
-Warnings are returned when the rule, condition, action, required condition milestone data, or action milestone is missing.
+Warnings are returned when the rule, condition, required condition milestone data, active single action, action sequence, or an individual sequence entry is missing or invalid.
+Action-sequence warnings identify the one-based index of each invalid entry.
 These warnings are also displayed as node configuration warnings in the editor.
 			</description>
 		</method>
@@ -58,7 +60,7 @@ This method does not change milestone progress and does not immediately evaluate
 	<members>
 		<member name="rule" type="PorchlightRule" setter="set_rule" getter="get_rule">
 			The rule managed by this runner.
-Replacing the rule resets the runner's completed state. Changes to the rule or its nested condition and action also reset that state and refresh editor configuration warnings.
+Replacing the rule resets the runner's completed state. Changes to the rule or its active nested condition and action resources also reset that state and refresh editor configuration warnings.
 		</member>
 		<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
 			If [code]true[/code], evaluates [member rule] when this node becomes ready at runtime.
@@ -80,7 +82,7 @@ Enabling this property while the node is already inside the scene tree connects 
 			<param index="1" name="action_changed" type="bool" />
 			<description>
 				Emitted when the runner evaluates a rule.
-[param condition_met] indicates whether the assigned condition was met. [param action_changed] indicates whether executing the action changed persistent milestone state.
+[param condition_met] indicates whether the assigned condition was met. [param action_changed] indicates whether at least one action executed by the rule changed persistent milestone state.
 An invalid or missing rule emits both values as [code]false[/code]. A recursive evaluation attempt blocked by the reentrancy guard does not emit this signal.
 			</description>
 		</signal>
