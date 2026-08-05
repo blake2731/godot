@@ -111,6 +111,12 @@ void PorchlightRuleManager::_connect_progress() {
                     &PorchlightRuleManager::
                             _on_milestones_cleared);
 
+    const Callable reloaded_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleManager::
+                            _on_progress_reloaded);
+
     if (!progress->is_connected(
                 "milestone_completed",
                 completed_callback)) {
@@ -133,6 +139,14 @@ void PorchlightRuleManager::_connect_progress() {
         progress->connect(
                 "milestones_cleared",
                 cleared_callback);
+    }
+
+    if (!progress->is_connected(
+                "progress_reloaded",
+                reloaded_callback)) {
+        progress->connect(
+                "progress_reloaded",
+                reloaded_callback);
     }
 }
 
@@ -162,6 +176,12 @@ void PorchlightRuleManager::_disconnect_progress() {
                     &PorchlightRuleManager::
                             _on_milestones_cleared);
 
+    const Callable reloaded_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleManager::
+                            _on_progress_reloaded);
+
     if (progress->is_connected(
                 "milestone_completed",
                 completed_callback)) {
@@ -184,6 +204,14 @@ void PorchlightRuleManager::_disconnect_progress() {
         progress->disconnect(
                 "milestones_cleared",
                 cleared_callback);
+    }
+
+    if (progress->is_connected(
+                "progress_reloaded",
+                reloaded_callback)) {
+        progress->disconnect(
+                "progress_reloaded",
+                reloaded_callback);
     }
 }
 
@@ -462,6 +490,26 @@ void PorchlightRuleManager::_on_milestone_removed(
 
 void PorchlightRuleManager::_on_milestones_cleared() {
     request_evaluation();
+}
+
+void PorchlightRuleManager::_on_progress_reloaded(
+        const PackedStringArray &p_added_milestones,
+        const PackedStringArray &p_removed_milestones) {
+    for (int index = 0;
+            index < p_added_milestones.size();
+            index++) {
+        request_evaluation_for_milestone(
+                StringName(
+                        p_added_milestones[index]));
+    }
+
+    for (int index = 0;
+            index < p_removed_milestones.size();
+            index++) {
+        request_evaluation_for_milestone(
+                StringName(
+                        p_removed_milestones[index]));
+    }
 }
 
 void PorchlightRuleManager::_notification(

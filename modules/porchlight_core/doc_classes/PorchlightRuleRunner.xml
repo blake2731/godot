@@ -1,86 +1,88 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightRuleRunner" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
-<brief_description>
-Evaluates a Porchlight rule automatically or on demand.
-</brief_description>
-<description>
-A scene node that manages the runtime evaluation of a [PorchlightRule].
-When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when any milestone referenced by the rule's condition is completed or removed. Clearing all milestones also causes reevaluation.
+	<brief_description>
+		Evaluates a Porchlight rule automatically or on demand.
+	</brief_description>
+	<description>
+		A scene node that manages the runtime evaluation of a [PorchlightRule].
+When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when any milestone referenced by the rule's condition is completed, removed, or changed by [method PorchlightProgress.load_progress]. Clearing all milestones also causes reevaluation.
 Single conditions reference [member PorchlightCondition.milestone]. Composite conditions reference every entry in [member PorchlightCondition.milestones].
+One progress reload causes at most one runner evaluation, even when several added or removed milestones are referenced by the condition. Reload changes unrelated to the condition do not cause evaluation.
 When [member run_once] is enabled, a rule whose condition becomes true is not evaluated again until [method reset_runner] is called, the assigned rule is replaced, or the assigned rule or one of its nested resources changes.
 A runner cannot reenter [method evaluate_rule] while an earlier evaluation is still active. This prevents its action and signal callbacks from recursively evaluating the same runner.
 The runner displays editor configuration warnings for missing or incomplete rule resources.
-</description>
-<tutorials>
-</tutorials>
-<methods>
-<method name="evaluate_rule">
-<return type="bool" />
-<description>
-Evaluates [member rule] and executes its action if the condition is met.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="evaluate_rule">
+			<return type="bool" />
+			<description>
+				Evaluates [member rule] and executes its action if the condition is met.
 Returns [code]true[/code] if the action changed persistent milestone state.
 Returns [code]false[/code] if the rule is missing or invalid, the condition is not met, the action does not change progress, [member run_once] is enabled and the rule has already run, or another evaluation is currently active on this runner.
 When [member run_once] is enabled, the runner is marked as having run as soon as a valid rule's condition is met, even if its action does not change progress.
 Calls rejected because another evaluation is active do not emit [signal evaluated].
-</description>
-</method>
-<method name="get_description" qualifiers="const">
-<return type="String" />
-<description>
-Returns a readable description of the assigned rule.
+			</description>
+		</method>
+		<method name="get_description" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a readable description of the assigned rule.
 Returns [code]No rule assigned.[/code] when no rule is configured. If [member run_once] is enabled and the rule has already run, the description is prefixed with [code]Rule already ran: [/code].
-</description>
-</method>
-<method name="get_setup_warnings" qualifiers="const">
-<return type="PackedStringArray" />
-<description>
-Returns configuration warnings for the assigned rule.
+			</description>
+		</method>
+		<method name="get_setup_warnings" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Returns configuration warnings for the assigned rule.
 Warnings are returned when the rule, condition, action, required condition milestone data, or action milestone is missing.
 These warnings are also displayed as node configuration warnings in the editor.
-</description>
-</method>
-<method name="has_run_rule" qualifiers="const">
-<return type="bool" />
-<description>
-Returns [code]true[/code] if a valid rule condition has been met since the runner was last reset.
+			</description>
+		</method>
+		<method name="has_run_rule" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if a valid rule condition has been met since the runner was last reset.
 This state only prevents further evaluation while [member run_once] is enabled.
-</description>
-</method>
-<method name="reset_runner">
-<return type="void" />
-<description>
-Clears the runner's internal completed state so a rule using [member run_once] can run again.
+			</description>
+		</method>
+		<method name="reset_runner">
+			<return type="void" />
+			<description>
+				Clears the runner's internal completed state so a rule using [member run_once] can run again.
 This method does not change milestone progress and does not immediately evaluate the rule.
-</description>
-</method>
-</methods>
-<members>
-<member name="rule" type="PorchlightRule" setter="set_rule" getter="get_rule">
-The rule managed by this runner.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="rule" type="PorchlightRule" setter="set_rule" getter="get_rule">
+			The rule managed by this runner.
 Replacing the rule resets the runner's completed state. Changes to the rule or its nested condition and action also reset that state and refresh editor configuration warnings.
-</member>
-<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
-If [code]true[/code], evaluates [member rule] when this node becomes ready at runtime.
-</member>
-<member name="run_once" type="bool" setter="set_run_once" getter="is_run_once" default="true">
-If [code]true[/code], prevents further evaluations after the rule's condition has been met.
+		</member>
+		<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
+			If [code]true[/code], evaluates [member rule] when this node becomes ready at runtime.
+		</member>
+		<member name="run_once" type="bool" setter="set_run_once" getter="is_run_once" default="true">
+			If [code]true[/code], prevents further evaluations after the rule's condition has been met.
 Call [method reset_runner] to allow the rule to run again.
-</member>
-<member name="watch_progress" type="bool" setter="set_watch_progress" getter="is_watch_progress" default="true">
-If [code]true[/code], listens for relevant changes from [PorchlightProgress].
-Completion or removal signals are filtered through [method PorchlightCondition.references_milestone], so the rule is reevaluated whenever the changed milestone is referenced by its single or composite condition. Clearing all milestones always causes reevaluation.
+		</member>
+		<member name="watch_progress" type="bool" setter="set_watch_progress" getter="is_watch_progress" default="true">
+			If [code]true[/code], listens for relevant changes from [PorchlightProgress].
+Completion and removal signals are filtered through [method PorchlightCondition.references_milestone], so the rule is reevaluated whenever the changed milestone is referenced by its single or composite condition. Clearing all milestones always causes reevaluation.
+A [signal PorchlightProgress.progress_reloaded] event is filtered across both its added and removed milestones. The runner evaluates once when one or more affected milestones are referenced and does not evaluate for an unrelated reload.
 Enabling this property while the node is already inside the scene tree connects the listener and immediately evaluates the rule.
-</member>
-</members>
-<signals>
-<signal name="evaluated">
-<param index="0" name="condition_met" type="bool" />
-<param index="1" name="action_changed" type="bool" />
-<description>
-Emitted when the runner evaluates a rule.
+		</member>
+	</members>
+	<signals>
+		<signal name="evaluated">
+			<param index="0" name="condition_met" type="bool" />
+			<param index="1" name="action_changed" type="bool" />
+			<description>
+				Emitted when the runner evaluates a rule.
 [param condition_met] indicates whether the assigned condition was met. [param action_changed] indicates whether executing the action changed persistent milestone state.
 An invalid or missing rule emits both values as [code]false[/code]. A recursive evaluation attempt blocked by the reentrancy guard does not emit this signal.
-</description>
-</signal>
-</signals>
+			</description>
+		</signal>
+	</signals>
 </class>

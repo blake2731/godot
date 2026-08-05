@@ -17,6 +17,8 @@ class PorchlightProgress : public Object {
     PackedStringArray _normalize_milestones(
             const PackedStringArray &p_milestones) const;
 
+    Error _load_progress(bool p_emit_reload_signal);
+
 protected:
     static void _bind_methods();
 

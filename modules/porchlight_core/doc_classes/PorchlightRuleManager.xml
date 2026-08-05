@@ -1,124 +1,127 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightRuleManager" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
-<brief_description>
-Coordinates multiple Porchlight rules through a deterministic evaluation queue.
-</brief_description>
-<description>
-A scene node that manages an ordered collection of [PorchlightRule] resources.
+	<brief_description>
+		Coordinates multiple Porchlight rules through a deterministic evaluation queue.
+	</brief_description>
+	<description>
+		A scene node that manages an ordered collection of [PorchlightRule] resources.
 Evaluation requests are deferred and combined into processing cycles. Within a cycle, the lowest queued rule index is processed first, and each rule index can be evaluated at most once. Duplicate requests for the same rule are therefore suppressed until the next cycle.
-When [member watch_progress] is enabled, milestone changes queue only rules whose conditions inspect the changed milestone. Progress changes produced by rule actions can add further matching rules to the active cycle.
+When [member watch_progress] is enabled, milestone changes queue only rules whose conditions inspect the changed milestone. Progress reloads queue the union of rules affected by added and removed milestones, with duplicate rule indexes combined into one deferred cycle.
+Progress changes produced by rule actions can add further matching rules to the active cycle.
 [member max_evaluations_per_cycle] provides a final safeguard against excessive rule chains. Rules still pending when the limit is reached are discarded from that cycle.
-</description>
-<tutorials>
-</tutorials>
-<methods>
-<method name="clear_pending_evaluations">
-<return type="void" />
-<description>
-Removes all rule evaluations that are currently waiting in the queue.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clear_pending_evaluations">
+			<return type="void" />
+			<description>
+				Removes all rule evaluations that are currently waiting in the queue.
 This does not interrupt a rule that is already being evaluated. A deferred processing callback that was already scheduled may still run, but it exits without starting a cycle when the queue is empty.
-</description>
-</method>
-<method name="did_last_cycle_reach_limit" qualifiers="const">
-<return type="bool" />
-<description>
-Returns [code]true[/code] if the most recently completed processing cycle stopped because [member max_evaluations_per_cycle] was reached.
-</description>
-</method>
-<method name="get_last_action_change_count" qualifiers="const">
-<return type="int" />
-<description>
-Returns the number of rule actions that changed persistent milestone state during the most recently completed processing cycle.
-</description>
-</method>
-<method name="get_last_evaluation_count" qualifiers="const">
-<return type="int" />
-<description>
-Returns the number of rule entries evaluated during the most recently completed processing cycle.
+			</description>
+		</method>
+		<method name="did_last_cycle_reach_limit" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the most recently completed processing cycle stopped because [member max_evaluations_per_cycle] was reached.
+			</description>
+		</method>
+		<method name="get_last_action_change_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of rule actions that changed persistent milestone state during the most recently completed processing cycle.
+			</description>
+		</method>
+		<method name="get_last_evaluation_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of rule entries evaluated during the most recently completed processing cycle.
 Invalid or empty rule entries count as evaluations when they are processed.
-</description>
-</method>
-<method name="get_pending_rule_count" qualifiers="const">
-<return type="int" />
-<description>
-Returns the number of distinct rule indexes currently waiting in the evaluation queue.
-</description>
-</method>
-<method name="get_setup_warnings" qualifiers="const">
-<return type="PackedStringArray" />
-<description>
-Returns configuration warnings for the manager and its rule entries.
+			</description>
+		</method>
+		<method name="get_pending_rule_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of distinct rule indexes currently waiting in the evaluation queue.
+			</description>
+		</method>
+		<method name="get_setup_warnings" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Returns configuration warnings for the manager and its rule entries.
 Warnings identify an empty rule array, empty entries, missing conditions or actions, missing milestone names, and a cycle limit lower than the number of configured rules.
 These warnings are also displayed as node configuration warnings in the editor.
-</description>
-</method>
-<method name="is_processing_rules" qualifiers="const">
-<return type="bool" />
-<description>
-Returns [code]true[/code] while the manager is actively processing an evaluation cycle.
-</description>
-</method>
-<method name="request_evaluation">
-<return type="void" />
-<description>
-Queues every rule entry for deferred evaluation.
+			</description>
+		</method>
+		<method name="is_processing_rules" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] while the manager is actively processing an evaluation cycle.
+			</description>
+		</method>
+		<method name="request_evaluation">
+			<return type="void" />
+			<description>
+				Queues every rule entry for deferred evaluation.
 Multiple requests made before processing begins are combined into one cycle. A rule index already evaluated during the active cycle is not queued again until a later cycle.
-</description>
-</method>
-<method name="request_evaluation_for_milestone">
-<return type="void" />
-<param index="0" name="milestone" type="StringName" />
-<description>
-Queues each rule whose condition inspects [param milestone].
+			</description>
+		</method>
+		<method name="request_evaluation_for_milestone">
+			<return type="void" />
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Queues each rule whose condition inspects [param milestone].
 Leading and trailing whitespace is removed from the milestone name. An empty normalized name does not queue any rules.
-</description>
-</method>
-</methods>
-<members>
-<member name="max_evaluations_per_cycle" type="int" setter="set_max_evaluations_per_cycle" getter="get_max_evaluations_per_cycle" default="64">
-The maximum number of rule entries that may be processed during one evaluation cycle.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="max_evaluations_per_cycle" type="int" setter="set_max_evaluations_per_cycle" getter="get_max_evaluations_per_cycle" default="64">
+			The maximum number of rule entries that may be processed during one evaluation cycle.
 Values lower than [code]1[/code] are normalized to [code]1[/code]. If the limit is reached while rules remain queued, [signal cycle_limit_reached] is emitted and the remaining requests are discarded from that cycle.
-</member>
-<member name="rules" type="PorchlightRule[]" setter="set_rules" getter="get_rules" default="[]">
-The ordered rule entries managed by this node.
+		</member>
+		<member name="rules" type="PorchlightRule[]" setter="set_rules" getter="get_rules" default="[]">
+			The ordered rule entries managed by this node.
 When every rule is requested together, entries are evaluated from the lowest index to the highest. Replacing this array clears pending evaluations, reconnects nested rule-change observation, and requests a new evaluation when the manager is active at runtime.
-</member>
-<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
-If [code]true[/code], queues every configured rule when this node becomes ready at runtime.
-</member>
-<member name="watch_progress" type="bool" setter="set_watch_progress" getter="is_watch_progress" default="true">
-If [code]true[/code], listens to [PorchlightProgress] for completed, removed, and cleared milestone events.
+		</member>
+		<member name="run_on_ready" type="bool" setter="set_run_on_ready" getter="is_run_on_ready" default="true">
+			If [code]true[/code], queues every configured rule when this node becomes ready at runtime.
+		</member>
+		<member name="watch_progress" type="bool" setter="set_watch_progress" getter="is_watch_progress" default="true">
+			If [code]true[/code], listens to [PorchlightProgress] for completed, removed, cleared, and reloaded milestone events.
 Completion and removal events queue rules whose conditions inspect the changed milestone. Clearing all milestones queues every rule.
+For [signal PorchlightProgress.progress_reloaded], rules affected by any added or removed milestone are queued. Rules referenced by several changed milestones are still queued only once, and all reload requests are combined into one deferred processing cycle.
+A reload containing only milestones unrelated to configured conditions does not start a cycle.
 Enabling this property while the node is already inside the scene tree connects progress observation and requests evaluation of every rule.
-</member>
-</members>
-<signals>
-<signal name="cycle_completed">
-<param index="0" name="evaluation_count" type="int" />
-<param index="1" name="action_change_count" type="int" />
-<param index="2" name="limit_reached" type="bool" />
-<description>
-Emitted after an evaluation cycle finishes.
+		</member>
+	</members>
+	<signals>
+		<signal name="cycle_completed">
+			<param index="0" name="evaluation_count" type="int" />
+			<param index="1" name="action_change_count" type="int" />
+			<param index="2" name="limit_reached" type="bool" />
+			<description>
+				Emitted after an evaluation cycle finishes.
 [param evaluation_count] is the number of processed rule entries. [param action_change_count] is the number of actions that changed milestone state. [param limit_reached] indicates whether the cycle stopped at [member max_evaluations_per_cycle].
-</description>
-</signal>
-<signal name="cycle_limit_reached">
-<param index="0" name="evaluation_limit" type="int" />
-<param index="1" name="pending_rule_count" type="int" />
-<description>
-Emitted when an evaluation cycle reaches its configured limit while rule entries remain queued.
+			</description>
+		</signal>
+		<signal name="cycle_limit_reached">
+			<param index="0" name="evaluation_limit" type="int" />
+			<param index="1" name="pending_rule_count" type="int" />
+			<description>
+				Emitted when an evaluation cycle reaches its configured limit while rule entries remain queued.
 [param evaluation_limit] is the active limit. [param pending_rule_count] is the number of queued rule indexes discarded from that cycle.
-</description>
-</signal>
-<signal name="rule_evaluated">
-<param index="0" name="rule_index" type="int" />
-<param index="1" name="condition_met" type="bool" />
-<param index="2" name="action_changed" type="bool" />
-<description>
-Emitted after one rule entry is processed.
+			</description>
+		</signal>
+		<signal name="rule_evaluated">
+			<param index="0" name="rule_index" type="int" />
+			<param index="1" name="condition_met" type="bool" />
+			<param index="2" name="action_changed" type="bool" />
+			<description>
+				Emitted after one rule entry is processed.
 [param rule_index] identifies the entry in [member rules]. [param condition_met] indicates whether its condition was met. [param action_changed] indicates whether its action changed persistent milestone state.
 An empty or invalid rule entry emits both Boolean values as [code]false[/code].
-</description>
-</signal>
-</signals>
+			</description>
+		</signal>
+	</signals>
 </class>
