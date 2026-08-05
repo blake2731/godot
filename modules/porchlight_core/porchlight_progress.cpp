@@ -4,6 +4,7 @@
 #include "core/error/error_macros.h"
 #include "core/io/config_file.h"
 #include "core/io/dir_access.h"
+#include "core/io/file_access.h"
 #include "core/object/class_db.h"
 
 namespace {
@@ -19,6 +20,15 @@ constexpr char SAVE_VERSION_KEY[] =
 
 constexpr char SAVE_KEY[] =
         "completed_milestones";
+
+constexpr char TEMPORARY_SUFFIX[] =
+        ".tmp";
+
+constexpr char BACKUP_SUFFIX[] =
+        ".bak";
+
+constexpr char COPY_TEMPORARY_SUFFIX[] =
+        ".copy_tmp";
 
 constexpr int LEGACY_SAVE_FORMAT_VERSION = 0;
 constexpr int CURRENT_SAVE_FORMAT_VERSION = 1;
@@ -110,11 +120,23 @@ String PorchlightProgress::_normalize_save_path(
     return normalized_path;
 }
 
-Error PorchlightProgress::_read_progress(
-        const String &p_save_path,
+String PorchlightProgress::_get_temporary_save_path(
+        const String &p_primary_path) const {
+    return p_primary_path +
+            TEMPORARY_SUFFIX;
+}
+
+String PorchlightProgress::_get_backup_save_path(
+        const String &p_primary_path) const {
+    return p_primary_path +
+            BACKUP_SUFFIX;
+}
+
+Error PorchlightProgress::_read_progress_file(
+        const String &p_file_path,
         HashSet<StringName> &r_loaded_lookup,
-        Vector<StringName> &r_loaded_milestones)
-        const {
+        Vector<StringName> &r_loaded_milestones,
+        bool p_allow_missing) const {
     r_loaded_lookup.clear();
     r_loaded_milestones.clear();
 
@@ -122,9 +144,10 @@ Error PorchlightProgress::_read_progress(
     config.instantiate();
 
     const Error load_error =
-            config->load(p_save_path);
+            config->load(p_file_path);
 
-    if (load_error == ERR_FILE_NOT_FOUND) {
+    if (load_error == ERR_FILE_NOT_FOUND &&
+            p_allow_missing) {
         return OK;
     }
 
@@ -220,6 +243,286 @@ Error PorchlightProgress::_read_progress(
 
         r_loaded_milestones.push_back(
                 milestone);
+    }
+
+    return OK;
+}
+
+Error PorchlightProgress::_validate_progress_file(
+        const String &p_file_path) const {
+    HashSet<StringName> validated_lookup;
+    Vector<StringName> validated_milestones;
+
+    return _read_progress_file(
+            p_file_path,
+            validated_lookup,
+            validated_milestones,
+            false);
+}
+
+Error PorchlightProgress::_write_progress_file(
+        const String &p_file_path) const {
+    Ref<ConfigFile> config;
+    config.instantiate();
+
+    Array saved_milestones;
+
+    saved_milestones.resize(
+            completed_milestones.size());
+
+    for (int index = 0;
+            index < completed_milestones.size();
+            index++) {
+        saved_milestones[index] =
+                String(
+                        completed_milestones[
+                                index]);
+    }
+
+    config->set_value(
+            SAVE_SECTION,
+            SAVE_VERSION_KEY,
+            CURRENT_SAVE_FORMAT_VERSION);
+
+    config->set_value(
+            SAVE_SECTION,
+            SAVE_KEY,
+            saved_milestones);
+
+    return config->save(p_file_path);
+}
+
+Error PorchlightProgress::
+_copy_validated_progress_file(
+        const String &p_source_path,
+        const String &p_destination_path) const {
+    const Error source_error =
+            _validate_progress_file(
+                    p_source_path);
+
+    if (source_error != OK) {
+        return source_error;
+    }
+
+    if (p_source_path ==
+            p_destination_path) {
+        return OK;
+    }
+
+    const String staging_path =
+            p_destination_path +
+            COPY_TEMPORARY_SUFFIX;
+
+    const String absolute_source_path =
+            ProjectSettings::get_singleton()
+                    ->globalize_path(
+                            p_source_path);
+
+    const String absolute_destination_path =
+            ProjectSettings::get_singleton()
+                    ->globalize_path(
+                            p_destination_path);
+
+    const String absolute_staging_path =
+            ProjectSettings::get_singleton()
+                    ->globalize_path(
+                            staging_path);
+
+    if (FileAccess::exists(staging_path)) {
+        const Error cleanup_error =
+                DirAccess::remove_absolute(
+                        absolute_staging_path);
+
+        if (cleanup_error != OK) {
+            return cleanup_error;
+        }
+    }
+
+    const Error copy_error =
+            DirAccess::copy_absolute(
+                    absolute_source_path,
+                    absolute_staging_path);
+
+    if (copy_error != OK) {
+        return copy_error;
+    }
+
+    const Error staging_validation_error =
+            _validate_progress_file(
+                    staging_path);
+
+    if (staging_validation_error != OK) {
+        DirAccess::remove_absolute(
+                absolute_staging_path);
+
+        return staging_validation_error;
+    }
+
+    const Error rename_error =
+            DirAccess::rename_absolute(
+                    absolute_staging_path,
+                    absolute_destination_path);
+
+    if (rename_error != OK) {
+        if (FileAccess::exists(staging_path)) {
+            DirAccess::remove_absolute(
+                    absolute_staging_path);
+        }
+
+        return rename_error;
+    }
+
+    return _validate_progress_file(
+            p_destination_path);
+}
+
+Error PorchlightProgress::_restore_progress_backup(
+        const String &p_primary_path,
+        const String &p_backup_path) const {
+    const Error backup_error =
+            _validate_progress_file(
+                    p_backup_path);
+
+    if (backup_error != OK) {
+        return backup_error;
+    }
+
+    return _copy_validated_progress_file(
+            p_backup_path,
+            p_primary_path);
+}
+
+Error PorchlightProgress::
+_promote_temporary_progress(
+        const String &p_temporary_path,
+        const String &p_primary_path,
+        const String &p_backup_path,
+        bool p_has_valid_backup) const {
+    const Error promotion_error =
+            _copy_validated_progress_file(
+                    p_temporary_path,
+                    p_primary_path);
+
+    const String absolute_temporary_path =
+            ProjectSettings::get_singleton()
+                    ->globalize_path(
+                            p_temporary_path);
+
+    if (promotion_error == OK) {
+        if (FileAccess::exists(
+                    p_temporary_path)) {
+            DirAccess::remove_absolute(
+                    absolute_temporary_path);
+        }
+
+        return OK;
+    }
+
+    if (p_has_valid_backup) {
+        const Error restoration_error =
+                _restore_progress_backup(
+                        p_primary_path,
+                        p_backup_path);
+
+        if (FileAccess::exists(
+                    p_temporary_path)) {
+            DirAccess::remove_absolute(
+                    absolute_temporary_path);
+        }
+
+        if (restoration_error != OK) {
+            return restoration_error;
+        }
+    } else if (FileAccess::exists(
+                       p_temporary_path)) {
+        DirAccess::remove_absolute(
+                absolute_temporary_path);
+    }
+
+    return promotion_error;
+}
+
+Error PorchlightProgress::_read_progress(
+        const String &p_primary_path,
+        HashSet<StringName> &r_loaded_lookup,
+        Vector<StringName> &r_loaded_milestones)
+        const {
+    r_loaded_lookup.clear();
+    r_loaded_milestones.clear();
+
+    const String backup_path =
+            _get_backup_save_path(
+                    p_primary_path);
+
+    if (FileAccess::exists(
+                p_primary_path)) {
+        const Error primary_error =
+                _read_progress_file(
+                        p_primary_path,
+                        r_loaded_lookup,
+                        r_loaded_milestones,
+                        false);
+
+        if (primary_error == OK) {
+            return OK;
+        }
+
+        if (primary_error ==
+                ERR_FILE_UNRECOGNIZED) {
+            return primary_error;
+        }
+
+        if (!FileAccess::exists(
+                    backup_path)) {
+            return primary_error;
+        }
+
+        const Error backup_error =
+                _validate_progress_file(
+                        backup_path);
+
+        if (backup_error != OK) {
+            return primary_error;
+        }
+
+        const Error restoration_error =
+                _restore_progress_backup(
+                        p_primary_path,
+                        backup_path);
+
+        if (restoration_error != OK) {
+            return restoration_error;
+        }
+
+        return _read_progress_file(
+                p_primary_path,
+                r_loaded_lookup,
+                r_loaded_milestones,
+                false);
+    }
+
+    if (FileAccess::exists(
+                backup_path)) {
+        const Error backup_error =
+                _validate_progress_file(
+                        backup_path);
+
+        if (backup_error == OK) {
+            const Error restoration_error =
+                    _restore_progress_backup(
+                            p_primary_path,
+                            backup_path);
+
+            if (restoration_error != OK) {
+                return restoration_error;
+            }
+
+            return _read_progress_file(
+                    p_primary_path,
+                    r_loaded_lookup,
+                    r_loaded_milestones,
+                    false);
+        }
     }
 
     return OK;
@@ -624,34 +927,89 @@ Error PorchlightProgress::save_progress() {
         return directory_error;
     }
 
-    Ref<ConfigFile> config;
-    config.instantiate();
+    const String temporary_path =
+            _get_temporary_save_path(
+                    save_path);
 
-    Array saved_milestones;
+    const String backup_path =
+            _get_backup_save_path(
+                    save_path);
 
-    saved_milestones.resize(
-            completed_milestones.size());
+    const String absolute_temporary_path =
+            ProjectSettings::get_singleton()
+                    ->globalize_path(
+                            temporary_path);
 
-    for (int index = 0;
-            index < completed_milestones.size();
-            index++) {
-        saved_milestones[index] =
-                String(
-                        completed_milestones[
-                                index]);
+    if (FileAccess::exists(
+                temporary_path)) {
+        const Error cleanup_error =
+                DirAccess::remove_absolute(
+                        absolute_temporary_path);
+
+        if (cleanup_error != OK) {
+            return cleanup_error;
+        }
     }
 
-    config->set_value(
-            SAVE_SECTION,
-            SAVE_VERSION_KEY,
-            CURRENT_SAVE_FORMAT_VERSION);
+    const Error write_error =
+            _write_progress_file(
+                    temporary_path);
 
-    config->set_value(
-            SAVE_SECTION,
-            SAVE_KEY,
-            saved_milestones);
+    if (write_error != OK) {
+        return write_error;
+    }
 
-    return config->save(save_path);
+    const Error temporary_validation_error =
+            _validate_progress_file(
+                    temporary_path);
+
+    if (temporary_validation_error != OK) {
+        DirAccess::remove_absolute(
+                absolute_temporary_path);
+
+        return temporary_validation_error;
+    }
+
+    if (FileAccess::exists(
+                save_path)) {
+        const Error primary_validation_error =
+                _validate_progress_file(
+                        save_path);
+
+        if (primary_validation_error ==
+                ERR_FILE_UNRECOGNIZED) {
+            DirAccess::remove_absolute(
+                    absolute_temporary_path);
+
+            return primary_validation_error;
+        }
+
+        if (primary_validation_error == OK) {
+            const Error backup_error =
+                    _copy_validated_progress_file(
+                            save_path,
+                            backup_path);
+
+            if (backup_error != OK) {
+                DirAccess::remove_absolute(
+                        absolute_temporary_path);
+
+                return backup_error;
+            }
+        }
+    }
+
+    const bool has_valid_backup =
+            FileAccess::exists(
+                    backup_path) &&
+            _validate_progress_file(
+                    backup_path) == OK;
+
+    return _promote_temporary_progress(
+            temporary_path,
+            save_path,
+            backup_path,
+            has_valid_backup);
 }
 
 Error PorchlightProgress::load_progress() {

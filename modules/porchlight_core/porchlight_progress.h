@@ -23,8 +23,40 @@ class PorchlightProgress : public Object {
     String _normalize_save_path(
             const String &p_save_path) const;
 
+    String _get_temporary_save_path(
+            const String &p_primary_path) const;
+
+    String _get_backup_save_path(
+            const String &p_primary_path) const;
+
+    Error _read_progress_file(
+            const String &p_file_path,
+            HashSet<StringName> &r_loaded_lookup,
+            Vector<StringName> &r_loaded_milestones,
+            bool p_allow_missing) const;
+
+    Error _validate_progress_file(
+            const String &p_file_path) const;
+
+    Error _write_progress_file(
+            const String &p_file_path) const;
+
+    Error _copy_validated_progress_file(
+            const String &p_source_path,
+            const String &p_destination_path) const;
+
+    Error _restore_progress_backup(
+            const String &p_primary_path,
+            const String &p_backup_path) const;
+
+    Error _promote_temporary_progress(
+            const String &p_temporary_path,
+            const String &p_primary_path,
+            const String &p_backup_path,
+            bool p_has_valid_backup) const;
+
     Error _read_progress(
-            const String &p_save_path,
+            const String &p_primary_path,
             HashSet<StringName> &r_loaded_lookup,
             Vector<StringName> &r_loaded_milestones) const;
 
