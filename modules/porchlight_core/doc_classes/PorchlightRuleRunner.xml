@@ -5,7 +5,8 @@ Evaluates a Porchlight rule automatically or on demand.
 </brief_description>
 <description>
 A scene node that manages the runtime evaluation of a [PorchlightRule].
-When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when the milestone used by the rule's condition is completed or removed. Clearing all milestones also causes reevaluation.
+When [member run_on_ready] is enabled, the rule is evaluated when this node becomes ready. When [member watch_progress] is enabled, the runner listens to [PorchlightProgress] and reevaluates when any milestone referenced by the rule's condition is completed or removed. Clearing all milestones also causes reevaluation.
+Single conditions reference [member PorchlightCondition.milestone]. Composite conditions reference every entry in [member PorchlightCondition.milestones].
 When [member run_once] is enabled, a rule whose condition becomes true is not evaluated again until [method reset_runner] is called, the assigned rule is replaced, or the assigned rule or one of its nested resources changes.
 A runner cannot reenter [method evaluate_rule] while an earlier evaluation is still active. This prevents its action and signal callbacks from recursively evaluating the same runner.
 The runner displays editor configuration warnings for missing or incomplete rule resources.
@@ -34,7 +35,7 @@ Returns [code]No rule assigned.[/code] when no rule is configured. If [member ru
 <return type="PackedStringArray" />
 <description>
 Returns configuration warnings for the assigned rule.
-Warnings are returned when the rule, condition, action, condition milestone, or action milestone is missing.
+Warnings are returned when the rule, condition, action, required condition milestone data, or action milestone is missing.
 These warnings are also displayed as node configuration warnings in the editor.
 </description>
 </method>
@@ -67,7 +68,7 @@ Call [method reset_runner] to allow the rule to run again.
 </member>
 <member name="watch_progress" type="bool" setter="set_watch_progress" getter="is_watch_progress" default="true">
 If [code]true[/code], listens for relevant changes from [PorchlightProgress].
-Completion or removal signals are filtered so the rule is reevaluated only when the changed milestone matches the rule condition. Clearing all milestones always causes reevaluation.
+Completion or removal signals are filtered through [method PorchlightCondition.references_milestone], so the rule is reevaluated whenever the changed milestone is referenced by its single or composite condition. Clearing all milestones always causes reevaluation.
 Enabling this property while the node is already inside the scene tree connects the listener and immediately evaluates the rule.
 </member>
 </members>

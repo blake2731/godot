@@ -231,12 +231,7 @@ bool PorchlightRule::is_valid() const {
         return false;
     }
 
-    const String condition_milestone =
-            String(
-                    condition->get_milestone())
-                    .strip_edges();
-
-    if (condition_milestone.is_empty()) {
+    if (!condition->is_valid()) {
         return false;
     }
 

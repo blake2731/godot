@@ -5,9 +5,9 @@ Combines a Porchlight condition with an action.
 </brief_description>
 <description>
 A reusable rule that evaluates a [PorchlightCondition] and executes a [PorchlightAction] when the condition is met.
-A rule is valid only when both resources are assigned and contain nonempty milestone names.
+A rule is valid only when both resources are assigned, the condition contains the milestone data required by its match mode, and the action contains a valid milestone name.
 Changes made inside the assigned condition or action are propagated through this resource's [signal Resource.changed] signal.
-Use [PorchlightRuleRunner] to evaluate rules automatically when milestone progress changes.
+Use [PorchlightRuleRunner] or [PorchlightRuleManager] to evaluate rules automatically when milestone progress changes.
 </description>
 <tutorials>
 </tutorials>
@@ -38,7 +38,8 @@ This method does not execute [member action].
 <method name="is_valid" qualifiers="const">
 <return type="bool" />
 <description>
-Returns [code]true[/code] if both [member condition] and [member action] are assigned and contain valid milestone names.
+Returns [code]true[/code] if [member condition] and [member action] are assigned and both resources are structurally valid.
+Condition validity depends on [member PorchlightCondition.match_mode]. Single conditions require [member PorchlightCondition.milestone], while composite conditions require at least one entry in [member PorchlightCondition.milestones].
 The value of [member enabled] does not affect structural validity.
 </description>
 </method>
@@ -49,7 +50,7 @@ The action executed when [member condition] is met.
 Changes made inside this resource are propagated through the rule.
 </member>
 <member name="condition" type="PorchlightCondition" setter="set_condition" getter="get_condition">
-The condition evaluated by this rule.
+The single or composite condition evaluated by this rule.
 Changes made inside this resource are propagated through the rule.
 </member>
 <member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">

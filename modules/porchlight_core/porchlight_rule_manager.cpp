@@ -279,8 +279,8 @@ void PorchlightRuleManager::_queue_rules_for_milestone(
             continue;
         }
 
-        if (condition->get_milestone() !=
-                p_milestone) {
+        if (!condition->references_milestone(
+                    p_milestone)) {
             continue;
         }
 
@@ -850,13 +850,11 @@ PorchlightRuleManager::get_setup_warnings() const {
             warnings.push_back(
                     entry_name +
                     " needs a PorchlightCondition.");
-        } else if (
-                String(condition->get_milestone())
-                        .strip_edges()
-                        .is_empty()) {
+        } else if (!condition->is_valid()) {
             warnings.push_back(
                     entry_name +
-                    " condition needs a milestone.");
+                    " condition needs at least "
+                    "one milestone.");
         }
 
         const Ref<PorchlightAction> action =
