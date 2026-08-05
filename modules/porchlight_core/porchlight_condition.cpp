@@ -32,6 +32,21 @@ PorchlightCondition::_get_normalized_milestones() const {
     return normalized_milestones;
 }
 
+void PorchlightCondition::_validate_property(
+        PropertyInfo &p_property) const {
+    if (p_property.name == "milestone" &&
+            match_mode != MATCH_SINGLE) {
+        p_property.usage &=
+                ~PROPERTY_USAGE_EDITOR;
+    }
+
+    if (p_property.name == "milestones" &&
+            match_mode == MATCH_SINGLE) {
+        p_property.usage &=
+                ~PROPERTY_USAGE_EDITOR;
+    }
+}
+
 void PorchlightCondition::_bind_methods() {
     ClassDB::bind_method(
             D_METHOD("set_milestone", "milestone"),
@@ -86,6 +101,15 @@ void PorchlightCondition::_bind_methods() {
 
     ADD_PROPERTY(
             PropertyInfo(
+                    Variant::INT,
+                    "match_mode",
+                    PROPERTY_HINT_ENUM,
+                    "Single,All,Any"),
+            "set_match_mode",
+            "get_match_mode");
+
+    ADD_PROPERTY(
+            PropertyInfo(
                     Variant::STRING_NAME,
                     "milestone"),
             "set_milestone",
@@ -97,15 +121,6 @@ void PorchlightCondition::_bind_methods() {
                     "milestones"),
             "set_milestones",
             "get_milestones");
-
-    ADD_PROPERTY(
-            PropertyInfo(
-                    Variant::INT,
-                    "match_mode",
-                    PROPERTY_HINT_ENUM,
-                    "Single,All,Any"),
-            "set_match_mode",
-            "get_match_mode");
 
     ADD_PROPERTY(
             PropertyInfo(
@@ -186,6 +201,8 @@ void PorchlightCondition::set_match_mode(
     }
 
     match_mode = p_match_mode;
+
+    notify_property_list_changed();
     emit_changed();
 }
 
