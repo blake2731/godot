@@ -9,6 +9,8 @@ Completed milestones are stored persistently in completion order and automatical
 Use [method complete_milestone] and [method remove_milestone] for individual changes. Use [method complete_milestones] and [method remove_milestones] to apply an ordered batch with one save operation.
 The default save path is [code]user://porchlight_progress.cfg[/code]. Use [method set_save_path] to switch transactionally to another file below [code]user://[/code], such as a profile or save-slot file.
 Changing the save path loads and validates the target before changing either the active path or milestone state. A missing target file represents valid empty progress. A failed path change preserves the previous path and state.
+Newly written progress files use save-format version [code]1[/code]. Existing unversioned files are treated as legacy version [code]0[/code] and remain loadable. A legacy file is upgraded to the current format the next time it is saved.
+Malformed version metadata is rejected with [constant ERR_INVALID_DATA]. Files using a newer unsupported version are rejected with [constant ERR_FILE_UNRECOGNIZED].
 Calling [method load_progress] at runtime replaces the active state from the current save file and emits [signal progress_reloaded] when milestone membership changes. The singleton's initial constructor load is silent.
 Automatic saves performed by milestone mutations always use the current path returned by [method get_save_path].
 	</description>
@@ -18,7 +20,7 @@ Automatic saves performed by milestone mutations always use the current path ret
 		<method name="clear_milestones">
 			<return type="void" />
 			<description>
-				Removes every completed milestone and saves the empty progress state to the active save path.
+				Removes every completed milestone and saves the empty progress state to the active save path using the current save format.
 Emits [signal milestones_cleared] if at least one milestone was completed before the operation.
 			</description>
 		</method>
@@ -75,10 +77,12 @@ Returns [code]false[/code] when the normalized milestone name is empty.
 			<description>
 				Reloads completed milestones from the active save path.
 Returns [constant OK] when loading succeeds. A missing save file is treated as empty progress and also returns [constant OK].
+Unversioned files are interpreted as legacy save-format version [code]0[/code]. Files explicitly declaring the current version [code]1[/code] are loaded normally.
+A non-integer or negative format version returns [constant ERR_INVALID_DATA]. A format version newer than the engine supports returns [constant ERR_FILE_UNRECOGNIZED].
 Empty entries, unsupported entry types, and duplicate milestone names inside an otherwise valid milestone array are ignored.
 If the loaded membership differs from the active state, the full replacement is applied before [signal progress_reloaded] is emitted. Added milestones are reported in loaded-file order, and removed milestones are reported in previous completion order.
 A reload that only changes milestone ordering installs the loaded order without emitting [signal progress_reloaded].
-If loading or validation fails, the active milestone state is preserved and no reload signal is emitted.
+If loading or validation fails, the active milestone state and save path are preserved and no reload signal is emitted.
 			</description>
 		</method>
 		<method name="remove_milestone">
@@ -105,6 +109,7 @@ Returns an empty array without saving or emitting signals when no milestone chan
 			<return type="int" enum="Error" />
 			<description>
 				Writes the current ordered milestone list to the active save path.
+New saves include [code]format_version=1[/code]. Saving a loaded legacy unversioned file upgrades that file to version [code]1[/code].
 Missing parent directories below [code]user://[/code] are created recursively.
 Returns the resulting [enum Error] value.
 			</description>
@@ -115,7 +120,8 @@ Returns the resulting [enum Error] value.
 			<description>
 				Transactionally switches progress persistence to [param save_path].
 Leading and trailing whitespace is removed and backslashes are converted to forward slashes. The normalized path must identify a file below [code]user://[/code]. Empty paths, directories, other schemes, invalid filename components, and [code].[/code] or [code]..[/code] traversal components return [constant ERR_INVALID_PARAMETER].
-The target file is completely loaded and validated before the active path or milestone state changes. A missing target file is accepted as an empty save slot.
+The target file, including its format version, is completely loaded and validated before the active path or milestone state changes. A missing target file is accepted as an empty save slot.
+Unversioned targets are accepted as legacy version [code]0[/code]. Invalid version metadata returns [constant ERR_INVALID_DATA], while unsupported future versions return [constant ERR_FILE_UNRECOGNIZED].
 If loading fails, the previous path and milestone state are preserved and no path or reload signal is emitted.
 After a successful switch, the new path and complete loaded state are installed before any signal is emitted. If membership changed, [signal progress_reloaded] is emitted first. [signal save_path_changed] is then emitted for every successful path change.
 Assigning the already active normalized path returns [constant OK] without reloading, saving, or emitting signals.
