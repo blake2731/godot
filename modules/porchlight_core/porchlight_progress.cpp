@@ -14,8 +14,14 @@ constexpr char DEFAULT_SAVE_PATH[] =
 constexpr char SAVE_SECTION[] =
         "progress";
 
+constexpr char SAVE_VERSION_KEY[] =
+        "format_version";
+
 constexpr char SAVE_KEY[] =
         "completed_milestones";
+
+constexpr int LEGACY_SAVE_FORMAT_VERSION = 0;
+constexpr int CURRENT_SAVE_FORMAT_VERSION = 1;
 
 } // namespace
 
@@ -124,6 +130,47 @@ Error PorchlightProgress::_read_progress(
 
     if (load_error != OK) {
         return load_error;
+    }
+
+    int save_format_version =
+            LEGACY_SAVE_FORMAT_VERSION;
+
+    if (config->has_section_key(
+                SAVE_SECTION,
+                SAVE_VERSION_KEY)) {
+        const Variant saved_version =
+                config->get_value(
+                        SAVE_SECTION,
+                        SAVE_VERSION_KEY);
+
+        if (saved_version.get_type() !=
+                Variant::INT) {
+            return ERR_INVALID_DATA;
+        }
+
+        const int64_t stored_version =
+                saved_version;
+
+        if (stored_version <
+                LEGACY_SAVE_FORMAT_VERSION) {
+            return ERR_INVALID_DATA;
+        }
+
+        if (stored_version >
+                CURRENT_SAVE_FORMAT_VERSION) {
+            return ERR_FILE_UNRECOGNIZED;
+        }
+
+        save_format_version =
+                static_cast<int>(
+                        stored_version);
+    }
+
+    if (save_format_version !=
+                    LEGACY_SAVE_FORMAT_VERSION &&
+            save_format_version !=
+                    CURRENT_SAVE_FORMAT_VERSION) {
+        return ERR_FILE_UNRECOGNIZED;
     }
 
     const Variant saved_value =
@@ -593,6 +640,11 @@ Error PorchlightProgress::save_progress() {
                         completed_milestones[
                                 index]);
     }
+
+    config->set_value(
+            SAVE_SECTION,
+            SAVE_VERSION_KEY,
+            CURRENT_SAVE_FORMAT_VERSION);
 
     config->set_value(
             SAVE_SECTION,
