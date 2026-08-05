@@ -7,6 +7,7 @@
 		The global Porchlight milestone-state service.
 Completed milestones are stored persistently in completion order and automatically loaded when the singleton is created. Milestone names are normalized by removing leading and trailing whitespace.
 Use [method complete_milestone] and [method remove_milestone] for individual changes. Use [method complete_milestones] and [method remove_milestones] to apply an ordered batch with one save operation.
+Milestone mutations are transactional with respect to persistence. A completion, removal, or clear operation keeps its new in-memory state and emits success signals only after the recoverable save succeeds. If persistence fails, the exact previous ordered state is restored and no success signal is emitted.
 The default save path is [code]user://porchlight_progress.cfg[/code]. Use [method set_save_path] to switch transactionally to another file below [code]user://[/code], such as a profile or save-slot file.
 Changing the save path loads and validates the target before changing either the active path or milestone state. A missing target file represents valid empty progress unless a valid backup is available for recovery. A failed path change preserves the previous path and state.
 Newly written progress files use save-format version [code]1[/code]. Existing unversioned files are treated as legacy version [code]0[/code] and remain loadable. A legacy file is upgraded to the current format the next time it is saved.
@@ -23,28 +24,32 @@ Automatic saves performed by milestone mutations always use the current path ret
 		<method name="clear_milestones">
 			<return type="void" />
 			<description>
-				Removes every completed milestone and recoverably saves the empty progress state to the active save path using the current save format.
-Emits [signal milestones_cleared] if at least one milestone was completed before the operation.
+				Attempts to remove every completed milestone and recoverably save the empty progress state to the active save path using the current save format.
+If saving succeeds, the empty state remains active and [signal milestones_cleared] is emitted when at least one milestone was previously complete.
+If saving fails, the exact previous ordered milestone state is restored and [signal milestones_cleared] is not emitted.
 			</description>
 		</method>
 		<method name="complete_milestone">
 			<return type="bool" />
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Marks [param milestone] as complete and recoverably saves the updated progress to the active save path.
-Returns [code]true[/code] if the milestone was newly completed. Returns [code]false[/code] if its normalized name is empty or it was already complete.
-A newly completed milestone is appended to the ordered list returned by [method get_completed_milestones] and causes [signal milestone_completed] to be emitted.
+				Attempts to mark [param milestone] as complete and recoverably save the updated progress to the active save path.
+Returns [code]true[/code] only when the milestone was newly completed and the updated state was saved successfully.
+Returns [code]false[/code] if its normalized name is empty, it was already complete, or persistence failed.
+If persistence fails after the in-memory mutation is applied, the exact previous ordered state is restored and [signal milestone_completed] is not emitted.
+A successfully persisted milestone is appended to the ordered list returned by [method get_completed_milestones] and causes [signal milestone_completed] to be emitted.
 			</description>
 		</method>
 		<method name="complete_milestones">
 			<return type="PackedStringArray" />
 			<param index="0" name="milestones" type="PackedStringArray" />
 			<description>
-				Marks every normalized entry in [param milestones] as complete.
+				Attempts to mark every normalized entry in [param milestones] as complete.
 Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
-Returns the milestones that became newly complete, in normalized input order. Milestones that were already complete are omitted from the returned array.
-The full batch is applied before signals are emitted. Progress is recoverably saved once to the active save path when at least one milestone changes, then [signal milestone_completed] is emitted once for each returned milestone in order.
-Returns an empty array without saving or emitting signals when no milestone changes.
+When persistence succeeds, returns the milestones that became newly complete in normalized input order. Milestones that were already complete are omitted.
+The full batch is applied before one recoverable save is attempted. After a successful save, [signal milestone_completed] is emitted once for each returned milestone in order.
+If saving fails, the exact previous lookup membership and completion order are restored, no completion signals are emitted, and an empty array is returned.
+Returns an empty array without saving or emitting signals when no milestone would change.
 			</description>
 		</method>
 		<method name="get_completed_count" qualifiers="const">
@@ -57,7 +62,7 @@ Returns an empty array without saving or emitting signals when no milestone chan
 			<return type="Array" />
 			<description>
 				Returns the completed milestones as an [Array] of [StringName] values.
-The milestones are returned in the order they were completed or loaded from the active save file.
+The milestones are returned in the order they were successfully persisted, loaded, or recovered from the active save file.
 			</description>
 		</method>
 		<method name="get_save_path" qualifiers="const">
@@ -74,6 +79,7 @@ The corresponding recovery backup path is the active path followed by [code].bak
 			<description>
 				Returns [code]true[/code] if [param milestone] is currently complete.
 Returns [code]false[/code] when the normalized milestone name is empty.
+Failed milestone mutations are rolled back before this method can observe them.
 			</description>
 		</method>
 		<method name="load_progress">
@@ -97,20 +103,23 @@ If loading, backup restoration, or validation fails, the active milestone state 
 			<return type="bool" />
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Removes [param milestone] from completed progress and recoverably saves the updated state to the active save path.
-Returns [code]true[/code] if the milestone was removed. Returns [code]false[/code] if its normalized name is empty or it was not complete.
-A successful removal emits [signal milestone_removed].
+				Attempts to remove [param milestone] from completed progress and recoverably save the updated state to the active save path.
+Returns [code]true[/code] only when the milestone was removed and the updated state was saved successfully.
+Returns [code]false[/code] if its normalized name is empty, it was not complete, or persistence failed.
+If persistence fails after the in-memory removal is applied, the exact previous ordered state is restored and [signal milestone_removed] is not emitted.
+A successfully persisted removal emits [signal milestone_removed].
 			</description>
 		</method>
 		<method name="remove_milestones">
 			<return type="PackedStringArray" />
 			<param index="0" name="milestones" type="PackedStringArray" />
 			<description>
-				Removes every normalized entry in [param milestones] from completed progress.
+				Attempts to remove every normalized entry in [param milestones] from completed progress.
 Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
-Returns the milestones that were actually removed, in normalized input order. Milestones that were not complete are omitted from the returned array.
-The full batch is applied before signals are emitted. Progress is recoverably saved once to the active save path when at least one milestone changes, then [signal milestone_removed] is emitted once for each returned milestone in order.
-Returns an empty array without saving or emitting signals when no milestone changes.
+When persistence succeeds, returns the milestones that were actually removed in normalized input order. Milestones that were not complete are omitted.
+The full batch is applied before one recoverable save is attempted. After a successful save, [signal milestone_removed] is emitted once for each returned milestone in order.
+If saving fails, the exact previous lookup membership and completion order are restored, no removal signals are emitted, and an empty array is returned.
+Returns an empty array without saving or emitting signals when no milestone would change.
 			</description>
 		</method>
 		<method name="save_progress">
@@ -124,6 +133,7 @@ If promotion fails and a valid backup exists, Porchlight attempts to restore the
 New saves include [code]format_version=1[/code]. Saving a loaded legacy unversioned file upgrades that file to version [code]1[/code].
 Missing parent directories below [code]user://[/code] are created recursively.
 Returns the resulting [enum Error] value from writing, validation, backup creation, promotion, or restoration.
+Direct calls to this method do not independently roll back unrelated caller-managed state. The milestone mutation methods perform their own ordered-state rollback when this method returns an error.
 			</description>
 		</method>
 		<method name="set_save_path">
@@ -146,20 +156,23 @@ Assigning the already active normalized path returns [constant OK] without reloa
 		<signal name="milestone_completed">
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Emitted when [param milestone] becomes complete.
-Batch completion emits this signal once per changed milestone, after the entire batch has been applied and its save attempt has completed.
+				Emitted only after [param milestone] becomes complete and the updated progress state is saved successfully.
+Batch completion emits this signal once per successfully persisted changed milestone, after the entire batch has been applied and saved.
+Failed completion saves restore the previous ordered state and do not emit this signal.
 			</description>
 		</signal>
 		<signal name="milestone_removed">
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Emitted when [param milestone] is removed from completed progress.
-Batch removal emits this signal once per changed milestone, after the entire batch has been applied and its save attempt has completed.
+				Emitted only after [param milestone] is removed and the updated progress state is saved successfully.
+Batch removal emits this signal once per successfully persisted changed milestone, after the entire batch has been applied and saved.
+Failed removal saves restore the previous ordered state and do not emit this signal.
 			</description>
 		</signal>
 		<signal name="milestones_cleared">
 			<description>
-				Emitted when [method clear_milestones] removes one or more completed milestones.
+				Emitted only when [method clear_milestones] removes one or more completed milestones and successfully saves the empty state.
+A failed clear save restores the previous ordered state and does not emit this signal.
 			</description>
 		</signal>
 		<signal name="progress_reloaded">

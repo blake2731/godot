@@ -758,6 +758,12 @@ PorchlightProgress::complete_milestones(
                     _normalize_milestones(
                             p_milestones);
 
+    const HashSet<StringName> previous_lookup =
+            completed_lookup;
+
+    const Vector<StringName> previous_milestones =
+            completed_milestones;
+
     PackedStringArray changed_milestones;
 
     for (int index = 0;
@@ -789,9 +795,18 @@ PorchlightProgress::complete_milestones(
             save_progress();
 
     if (save_error != OK) {
+        completed_lookup =
+                previous_lookup;
+
+        completed_milestones =
+                previous_milestones;
+
         ERR_PRINT(
                 "PorchlightProgress could not save "
-                "the completed milestones.");
+                "the completed milestones. The "
+                "in-memory changes were rolled back.");
+
+        return PackedStringArray();
     }
 
     for (int index = 0;
@@ -826,6 +841,12 @@ PorchlightProgress::remove_milestones(
                     _normalize_milestones(
                             p_milestones);
 
+    const HashSet<StringName> previous_lookup =
+            completed_lookup;
+
+    const Vector<StringName> previous_milestones =
+            completed_milestones;
+
     PackedStringArray changed_milestones;
 
     for (int index = 0;
@@ -857,9 +878,18 @@ PorchlightProgress::remove_milestones(
             save_progress();
 
     if (save_error != OK) {
+        completed_lookup =
+                previous_lookup;
+
+        completed_milestones =
+                previous_milestones;
+
         ERR_PRINT(
                 "PorchlightProgress could not save "
-                "the removed milestones.");
+                "the removed milestones. The "
+                "in-memory changes were rolled back.");
+
+        return PackedStringArray();
     }
 
     for (int index = 0;
@@ -1069,6 +1099,12 @@ get_save_path() const {
 }
 
 void PorchlightProgress::clear_milestones() {
+    const HashSet<StringName> previous_lookup =
+            completed_lookup;
+
+    const Vector<StringName> previous_milestones =
+            completed_milestones;
+
     const bool had_milestones =
             !completed_milestones.is_empty();
 
@@ -1079,9 +1115,18 @@ void PorchlightProgress::clear_milestones() {
             save_progress();
 
     if (save_error != OK) {
+        completed_lookup =
+                previous_lookup;
+
+        completed_milestones =
+                previous_milestones;
+
         ERR_PRINT(
                 "PorchlightProgress could not save "
-                "the cleared milestone data.");
+                "the cleared milestone data. The "
+                "in-memory changes were rolled back.");
+
+        return;
     }
 
     if (had_milestones) {
