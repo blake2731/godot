@@ -26,6 +26,9 @@ private:
 protected:
     static void _bind_methods();
 
+    void _validate_property(
+            PropertyInfo &p_property) const;
+
 public:
     void set_milestone(const StringName &p_milestone);
     StringName get_milestone() const;
