@@ -1,104 +1,126 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightProgress" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
-<brief_description>
-Stores and persists completed Porchlight milestones.
-</brief_description>
-<description>
-The global Porchlight milestone-state service.
+	<brief_description>
+		Stores and persists completed Porchlight milestones.
+	</brief_description>
+	<description>
+		The global Porchlight milestone-state service.
 Completed milestones are stored persistently in completion order and automatically loaded when the singleton is created. Milestone names are normalized by removing leading and trailing whitespace.
-Use [method complete_milestone] and [method remove_milestone] to change progress. These methods automatically save the updated state and emit signals only when the requested milestone state actually changes.
+Use [method complete_milestone] and [method remove_milestone] for individual changes. Use [method complete_milestones] and [method remove_milestones] to apply an ordered batch with one save operation.
 Progress is stored at [code]user://porchlight_progress.cfg[/code].
-</description>
-<tutorials>
-</tutorials>
-<methods>
-<method name="clear_milestones">
-<return type="void" />
-<description>
-Removes every completed milestone and saves the empty progress state.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="clear_milestones">
+			<return type="void" />
+			<description>
+				Removes every completed milestone and saves the empty progress state.
 Emits [signal milestones_cleared] if at least one milestone was completed before the operation.
-</description>
-</method>
-<method name="complete_milestone">
-<return type="bool" />
-<param index="0" name="milestone" type="StringName" />
-<description>
-Marks [param milestone] as complete and saves the updated progress.
+			</description>
+		</method>
+		<method name="complete_milestone">
+			<return type="bool" />
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Marks [param milestone] as complete and saves the updated progress.
 Returns [code]true[/code] if the milestone was newly completed. Returns [code]false[/code] if its normalized name is empty or it was already complete.
 A newly completed milestone is appended to the ordered list returned by [method get_completed_milestones] and causes [signal milestone_completed] to be emitted.
-</description>
-</method>
-<method name="get_completed_count" qualifiers="const">
-<return type="int" />
-<description>
-Returns the number of currently completed milestones.
-</description>
-</method>
-<method name="get_completed_milestones" qualifiers="const">
-<return type="Array" />
-<description>
-Returns the completed milestones as an [Array] of [StringName] values.
+			</description>
+		</method>
+		<method name="complete_milestones">
+			<return type="PackedStringArray" />
+			<param index="0" name="milestones" type="PackedStringArray" />
+			<description>
+				Marks every normalized entry in [param milestones] as complete.
+Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
+Returns the milestones that became newly complete, in normalized input order. Milestones that were already complete are omitted from the returned array.
+The full batch is applied before signals are emitted. Progress is saved once when at least one milestone changes, then [signal milestone_completed] is emitted once for each returned milestone in order.
+Returns an empty array without saving or emitting signals when no milestone changes.
+			</description>
+		</method>
+		<method name="get_completed_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of currently completed milestones.
+			</description>
+		</method>
+		<method name="get_completed_milestones" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns the completed milestones as an [Array] of [StringName] values.
 The milestones are returned in the order they were completed or loaded from the save file.
-</description>
-</method>
-<method name="get_save_path" qualifiers="const">
-<return type="String" />
-<description>
-Returns the progress save path [code]user://porchlight_progress.cfg[/code].
-</description>
-</method>
-<method name="is_complete" qualifiers="const">
-<return type="bool" />
-<param index="0" name="milestone" type="StringName" />
-<description>
-Returns [code]true[/code] if [param milestone] is currently complete.
+			</description>
+		</method>
+		<method name="get_save_path" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the progress save path [code]user://porchlight_progress.cfg[/code].
+			</description>
+		</method>
+		<method name="is_complete" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Returns [code]true[/code] if [param milestone] is currently complete.
 Returns [code]false[/code] when the normalized milestone name is empty.
-</description>
-</method>
-<method name="load_progress">
-<return type="int" enum="Error" />
-<description>
-Reloads completed milestones from the progress save file.
+			</description>
+		</method>
+		<method name="load_progress">
+			<return type="int" enum="Error" />
+			<description>
+				Reloads completed milestones from the progress save file.
 Returns [constant OK] when loading succeeds. A missing save file is treated as empty progress and also returns [constant OK].
 Empty entries, unsupported entry types, and duplicate milestone names inside an otherwise valid milestone array are ignored.
-</description>
-</method>
-<method name="remove_milestone">
-<return type="bool" />
-<param index="0" name="milestone" type="StringName" />
-<description>
-Removes [param milestone] from the completed milestone state and saves the updated progress.
+			</description>
+		</method>
+		<method name="remove_milestone">
+			<return type="bool" />
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Removes [param milestone] from completed progress and saves the updated state.
 Returns [code]true[/code] if the milestone was removed. Returns [code]false[/code] if its normalized name is empty or it was not complete.
 A successful removal emits [signal milestone_removed].
-</description>
-</method>
-<method name="save_progress">
-<return type="int" enum="Error" />
-<description>
-Writes the current ordered milestone list to the progress save file.
+			</description>
+		</method>
+		<method name="remove_milestones">
+			<return type="PackedStringArray" />
+			<param index="0" name="milestones" type="PackedStringArray" />
+			<description>
+				Removes every normalized entry in [param milestones] from completed progress.
+Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
+Returns the milestones that were actually removed, in normalized input order. Milestones that were not complete are omitted from the returned array.
+The full batch is applied before signals are emitted. Progress is saved once when at least one milestone changes, then [signal milestone_removed] is emitted once for each returned milestone in order.
+Returns an empty array without saving or emitting signals when no milestone changes.
+			</description>
+		</method>
+		<method name="save_progress">
+			<return type="int" enum="Error" />
+			<description>
+				Writes the current ordered milestone list to the progress save file.
 Returns the resulting [enum Error] value.
-</description>
-</method>
-</methods>
-<signals>
-<signal name="milestone_completed">
-<param index="0" name="milestone" type="StringName" />
-<description>
-Emitted when [param milestone] becomes complete.
-This signal is not emitted when an already completed milestone is submitted again.
-</description>
-</signal>
-<signal name="milestone_removed">
-<param index="0" name="milestone" type="StringName" />
-<description>
-Emitted when [param milestone] is removed from the completed milestone state.
-This signal is not emitted when the milestone was not complete.
-</description>
-</signal>
-<signal name="milestones_cleared">
-<description>
-Emitted when [method clear_milestones] removes one or more completed milestones.
-</description>
-</signal>
-</signals>
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="milestone_completed">
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Emitted when [param milestone] becomes complete.
+Batch completion emits this signal once per changed milestone, after the entire batch has been applied and saved.
+			</description>
+		</signal>
+		<signal name="milestone_removed">
+			<param index="0" name="milestone" type="StringName" />
+			<description>
+				Emitted when [param milestone] is removed from completed progress.
+Batch removal emits this signal once per changed milestone, after the entire batch has been applied and saved.
+			</description>
+		</signal>
+		<signal name="milestones_cleared">
+			<description>
+				Emitted when [method clear_milestones] removes one or more completed milestones.
+			</description>
+		</signal>
+	</signals>
 </class>
