@@ -7,8 +7,10 @@
 		The global Porchlight milestone-state service.
 Completed milestones are stored persistently in completion order and automatically loaded when the singleton is created. Milestone names are normalized by removing leading and trailing whitespace.
 Use [method complete_milestone] and [method remove_milestone] for individual changes. Use [method complete_milestones] and [method remove_milestones] to apply an ordered batch with one save operation.
-Calling [method load_progress] at runtime replaces the active state from disk and emits [signal progress_reloaded] when the loaded state differs from the previous state. The singleton's initial constructor load is silent.
-Progress is stored at [code]user://porchlight_progress.cfg[/code].
+The default save path is [code]user://porchlight_progress.cfg[/code]. Use [method set_save_path] to switch transactionally to another file below [code]user://[/code], such as a profile or save-slot file.
+Changing the save path loads and validates the target before changing either the active path or milestone state. A missing target file represents valid empty progress. A failed path change preserves the previous path and state.
+Calling [method load_progress] at runtime replaces the active state from the current save file and emits [signal progress_reloaded] when milestone membership changes. The singleton's initial constructor load is silent.
+Automatic saves performed by milestone mutations always use the current path returned by [method get_save_path].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -16,7 +18,7 @@ Progress is stored at [code]user://porchlight_progress.cfg[/code].
 		<method name="clear_milestones">
 			<return type="void" />
 			<description>
-				Removes every completed milestone and saves the empty progress state.
+				Removes every completed milestone and saves the empty progress state to the active save path.
 Emits [signal milestones_cleared] if at least one milestone was completed before the operation.
 			</description>
 		</method>
@@ -24,7 +26,7 @@ Emits [signal milestones_cleared] if at least one milestone was completed before
 			<return type="bool" />
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Marks [param milestone] as complete and saves the updated progress.
+				Marks [param milestone] as complete and saves the updated progress to the active save path.
 Returns [code]true[/code] if the milestone was newly completed. Returns [code]false[/code] if its normalized name is empty or it was already complete.
 A newly completed milestone is appended to the ordered list returned by [method get_completed_milestones] and causes [signal milestone_completed] to be emitted.
 			</description>
@@ -36,7 +38,7 @@ A newly completed milestone is appended to the ordered list returned by [method 
 				Marks every normalized entry in [param milestones] as complete.
 Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
 Returns the milestones that became newly complete, in normalized input order. Milestones that were already complete are omitted from the returned array.
-The full batch is applied before signals are emitted. Progress is saved once when at least one milestone changes, then [signal milestone_completed] is emitted once for each returned milestone in order.
+The full batch is applied before signals are emitted. Progress is saved once to the active save path when at least one milestone changes, then [signal milestone_completed] is emitted once for each returned milestone in order.
 Returns an empty array without saving or emitting signals when no milestone changes.
 			</description>
 		</method>
@@ -50,13 +52,14 @@ Returns an empty array without saving or emitting signals when no milestone chan
 			<return type="Array" />
 			<description>
 				Returns the completed milestones as an [Array] of [StringName] values.
-The milestones are returned in the order they were completed or loaded from the save file.
+The milestones are returned in the order they were completed or loaded from the active save file.
 			</description>
 		</method>
 		<method name="get_save_path" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns the progress save path [code]user://porchlight_progress.cfg[/code].
+				Returns the currently active progress save path.
+The initial path is [code]user://porchlight_progress.cfg[/code]. A successful call to [method set_save_path] replaces it.
 			</description>
 		</method>
 		<method name="is_complete" qualifiers="const">
@@ -70,10 +73,11 @@ Returns [code]false[/code] when the normalized milestone name is empty.
 		<method name="load_progress">
 			<return type="int" enum="Error" />
 			<description>
-				Reloads completed milestones from the progress save file.
+				Reloads completed milestones from the active save path.
 Returns [constant OK] when loading succeeds. A missing save file is treated as empty progress and also returns [constant OK].
 Empty entries, unsupported entry types, and duplicate milestone names inside an otherwise valid milestone array are ignored.
-If the loaded state differs from the active state, the full replacement is applied before [signal progress_reloaded] is emitted. An identical reload does not emit the signal.
+If the loaded membership differs from the active state, the full replacement is applied before [signal progress_reloaded] is emitted. Added milestones are reported in loaded-file order, and removed milestones are reported in previous completion order.
+A reload that only changes milestone ordering installs the loaded order without emitting [signal progress_reloaded].
 If loading or validation fails, the active milestone state is preserved and no reload signal is emitted.
 			</description>
 		</method>
@@ -81,7 +85,7 @@ If loading or validation fails, the active milestone state is preserved and no r
 			<return type="bool" />
 			<param index="0" name="milestone" type="StringName" />
 			<description>
-				Removes [param milestone] from completed progress and saves the updated state.
+				Removes [param milestone] from completed progress and saves the updated state to the active save path.
 Returns [code]true[/code] if the milestone was removed. Returns [code]false[/code] if its normalized name is empty or it was not complete.
 A successful removal emits [signal milestone_removed].
 			</description>
@@ -93,15 +97,28 @@ A successful removal emits [signal milestone_removed].
 				Removes every normalized entry in [param milestones] from completed progress.
 Leading and trailing whitespace is removed, empty entries are ignored, and duplicate names are discarded while preserving their first occurrence.
 Returns the milestones that were actually removed, in normalized input order. Milestones that were not complete are omitted from the returned array.
-The full batch is applied before signals are emitted. Progress is saved once when at least one milestone changes, then [signal milestone_removed] is emitted once for each returned milestone in order.
+The full batch is applied before signals are emitted. Progress is saved once to the active save path when at least one milestone changes, then [signal milestone_removed] is emitted once for each returned milestone in order.
 Returns an empty array without saving or emitting signals when no milestone changes.
 			</description>
 		</method>
 		<method name="save_progress">
 			<return type="int" enum="Error" />
 			<description>
-				Writes the current ordered milestone list to the progress save file.
+				Writes the current ordered milestone list to the active save path.
+Missing parent directories below [code]user://[/code] are created recursively.
 Returns the resulting [enum Error] value.
+			</description>
+		</method>
+		<method name="set_save_path">
+			<return type="int" enum="Error" />
+			<param index="0" name="save_path" type="String" />
+			<description>
+				Transactionally switches progress persistence to [param save_path].
+Leading and trailing whitespace is removed and backslashes are converted to forward slashes. The normalized path must identify a file below [code]user://[/code]. Empty paths, directories, other schemes, invalid filename components, and [code].[/code] or [code]..[/code] traversal components return [constant ERR_INVALID_PARAMETER].
+The target file is completely loaded and validated before the active path or milestone state changes. A missing target file is accepted as an empty save slot.
+If loading fails, the previous path and milestone state are preserved and no path or reload signal is emitted.
+After a successful switch, the new path and complete loaded state are installed before any signal is emitted. If membership changed, [signal progress_reloaded] is emitted first. [signal save_path_changed] is then emitted for every successful path change.
+Assigning the already active normalized path returns [constant OK] without reloading, saving, or emitting signals.
 			</description>
 		</method>
 	</methods>
@@ -129,10 +146,21 @@ Batch removal emits this signal once per changed milestone, after the entire bat
 			<param index="0" name="added_milestones" type="PackedStringArray" />
 			<param index="1" name="removed_milestones" type="PackedStringArray" />
 			<description>
-				Emitted after [method load_progress] successfully replaces the active state with a different saved state.
+				Emitted after [method load_progress] or [method set_save_path] successfully installs a saved state with different milestone membership.
 [param added_milestones] contains milestones present in the loaded state but absent from the previous state, in loaded-file order.
 [param removed_milestones] contains milestones present in the previous state but absent from the loaded state, in previous completion order.
-The complete loaded state has already been applied when this signal is emitted. Identical, failed, and initial constructor loads do not emit this signal.
+The complete loaded state and active save path have already been installed when this signal is emitted. Identical-membership, failed, and initial constructor loads do not emit this signal.
+During [method set_save_path], this signal is emitted before [signal save_path_changed].
+			</description>
+		</signal>
+		<signal name="save_path_changed">
+			<param index="0" name="previous_path" type="String" />
+			<param index="1" name="new_path" type="String" />
+			<description>
+				Emitted after [method set_save_path] successfully changes the active save path.
+[param previous_path] is the formerly active normalized path. [param new_path] is the newly active normalized path.
+The target state and [param new_path] are fully installed before this signal is emitted. If the switch also changes milestone membership, [signal progress_reloaded] is emitted first.
+Failed and repeated path assignments do not emit this signal.
 			</description>
 		</signal>
 	</signals>

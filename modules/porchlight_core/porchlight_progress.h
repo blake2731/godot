@@ -3,6 +3,7 @@
 #include "core/error/error_list.h"
 #include "core/object/object.h"
 #include "core/string/string_name.h"
+#include "core/string/ustring.h"
 #include "core/templates/hash_set.h"
 #include "core/templates/vector.h"
 #include "core/variant/array.h"
@@ -14,8 +15,23 @@ class PorchlightProgress : public Object {
     HashSet<StringName> completed_lookup;
     Vector<StringName> completed_milestones;
 
+    String save_path;
+
     PackedStringArray _normalize_milestones(
             const PackedStringArray &p_milestones) const;
+
+    String _normalize_save_path(
+            const String &p_save_path) const;
+
+    Error _read_progress(
+            const String &p_save_path,
+            HashSet<StringName> &r_loaded_lookup,
+            Vector<StringName> &r_loaded_milestones) const;
+
+    void _replace_progress_state(
+            const HashSet<StringName> &p_loaded_lookup,
+            const Vector<StringName> &p_loaded_milestones,
+            bool p_emit_reload_signal);
 
     Error _load_progress(bool p_emit_reload_signal);
 
@@ -45,6 +61,9 @@ public:
 
     Error save_progress();
     Error load_progress();
+
+    Error set_save_path(
+            const String &p_save_path);
 
     String get_save_path() const;
 
