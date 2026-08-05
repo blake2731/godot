@@ -61,6 +61,10 @@ class PorchlightRuleManager : public Node {
 
     void _on_milestones_cleared();
 
+    void _on_progress_reloaded(
+            const PackedStringArray &p_added_milestones,
+            const PackedStringArray &p_removed_milestones);
+
 protected:
     static void _bind_methods();
     void _notification(int p_what);

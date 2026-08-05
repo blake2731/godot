@@ -96,6 +96,12 @@ void PorchlightRuleRunner::_connect_progress() {
                     &PorchlightRuleRunner::
                             _on_milestones_cleared);
 
+    const Callable reloaded_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_progress_reloaded);
+
     if (!progress->is_connected(
                 "milestone_completed",
                 completed_callback)) {
@@ -118,6 +124,14 @@ void PorchlightRuleRunner::_connect_progress() {
         progress->connect(
                 "milestones_cleared",
                 cleared_callback);
+    }
+
+    if (!progress->is_connected(
+                "progress_reloaded",
+                reloaded_callback)) {
+        progress->connect(
+                "progress_reloaded",
+                reloaded_callback);
     }
 }
 
@@ -147,6 +161,12 @@ void PorchlightRuleRunner::_disconnect_progress() {
                     &PorchlightRuleRunner::
                             _on_milestones_cleared);
 
+    const Callable reloaded_callback =
+            callable_mp(
+                    this,
+                    &PorchlightRuleRunner::
+                            _on_progress_reloaded);
+
     if (progress->is_connected(
                 "milestone_completed",
                 completed_callback)) {
@@ -169,6 +189,14 @@ void PorchlightRuleRunner::_disconnect_progress() {
         progress->disconnect(
                 "milestones_cleared",
                 cleared_callback);
+    }
+
+    if (progress->is_connected(
+                "progress_reloaded",
+                reloaded_callback)) {
+        progress->disconnect(
+                "progress_reloaded",
+                reloaded_callback);
     }
 }
 
@@ -210,6 +238,47 @@ void PorchlightRuleRunner::_on_milestone_removed(
 
 void PorchlightRuleRunner::_on_milestones_cleared() {
     evaluate_rule();
+}
+
+void PorchlightRuleRunner::_on_progress_reloaded(
+        const PackedStringArray &p_added_milestones,
+        const PackedStringArray &p_removed_milestones) {
+    if (rule.is_null()) {
+        return;
+    }
+
+    const Ref<PorchlightCondition> condition =
+            rule->get_condition();
+
+    if (condition.is_null()) {
+        return;
+    }
+
+    for (int index = 0;
+            index < p_added_milestones.size();
+            index++) {
+        if (!condition->references_milestone(
+                    StringName(
+                            p_added_milestones[index]))) {
+            continue;
+        }
+
+        evaluate_rule();
+        return;
+    }
+
+    for (int index = 0;
+            index < p_removed_milestones.size();
+            index++) {
+        if (!condition->references_milestone(
+                    StringName(
+                            p_removed_milestones[index]))) {
+            continue;
+        }
+
+        evaluate_rule();
+        return;
+    }
 }
 
 void PorchlightRuleRunner::_notification(int p_what) {

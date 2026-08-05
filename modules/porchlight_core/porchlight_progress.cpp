@@ -45,8 +45,131 @@ PorchlightProgress::_normalize_milestones(
     return normalized_milestones;
 }
 
+Error PorchlightProgress::_load_progress(
+        bool p_emit_reload_signal) {
+    Ref<ConfigFile> config;
+    config.instantiate();
+
+    const Error load_error =
+            config->load(SAVE_PATH);
+
+    HashSet<StringName> loaded_lookup;
+    Vector<StringName> loaded_milestones;
+
+    if (load_error != ERR_FILE_NOT_FOUND) {
+        if (load_error != OK) {
+            return load_error;
+        }
+
+        const Variant saved_value =
+                config->get_value(
+                        SAVE_SECTION,
+                        SAVE_KEY,
+                        Array());
+
+        if (saved_value.get_type() !=
+                Variant::ARRAY) {
+            return ERR_INVALID_DATA;
+        }
+
+        const Array saved_milestones =
+                saved_value;
+
+        for (int index = 0;
+                index < saved_milestones.size();
+                index++) {
+            const Variant entry =
+                    saved_milestones[index];
+
+            if (entry.get_type() !=
+                            Variant::STRING &&
+                    entry.get_type() !=
+                            Variant::STRING_NAME) {
+                continue;
+            }
+
+            const String milestone_text =
+                    String(entry).strip_edges();
+
+            if (milestone_text.is_empty()) {
+                continue;
+            }
+
+            const StringName milestone =
+                    milestone_text;
+
+            if (loaded_lookup.has(
+                        milestone)) {
+                continue;
+            }
+
+            loaded_lookup.insert(
+                    milestone);
+
+            loaded_milestones.push_back(
+                    milestone);
+        }
+    }
+
+    PackedStringArray added_milestones;
+    PackedStringArray removed_milestones;
+
+    for (int index = 0;
+            index < loaded_milestones.size();
+            index++) {
+        const StringName milestone =
+                loaded_milestones[index];
+
+        if (completed_lookup.has(milestone)) {
+            continue;
+        }
+
+        added_milestones.push_back(
+                String(milestone));
+    }
+
+    for (int index = 0;
+            index < completed_milestones.size();
+            index++) {
+        const StringName milestone =
+                completed_milestones[index];
+
+        if (loaded_lookup.has(milestone)) {
+            continue;
+        }
+
+        removed_milestones.push_back(
+                String(milestone));
+    }
+
+    completed_lookup.clear();
+    completed_milestones.clear();
+
+    for (int index = 0;
+            index < loaded_milestones.size();
+            index++) {
+        const StringName milestone =
+                loaded_milestones[index];
+
+        completed_lookup.insert(milestone);
+        completed_milestones.push_back(milestone);
+    }
+
+    if (p_emit_reload_signal &&
+            (!added_milestones.is_empty() ||
+                    !removed_milestones.is_empty())) {
+        emit_signal(
+                "progress_reloaded",
+                added_milestones,
+                removed_milestones);
+    }
+
+    return OK;
+}
+
 PorchlightProgress::PorchlightProgress() {
-    const Error load_error = load_progress();
+    const Error load_error =
+            _load_progress(false);
 
     if (load_error != OK) {
         completed_lookup.clear();
@@ -137,6 +260,16 @@ void PorchlightProgress::_bind_methods() {
 
     ADD_SIGNAL(
             MethodInfo("milestones_cleared"));
+
+    ADD_SIGNAL(
+            MethodInfo(
+                    "progress_reloaded",
+                    PropertyInfo(
+                            Variant::PACKED_STRING_ARRAY,
+                            "added_milestones"),
+                    PropertyInfo(
+                            Variant::PACKED_STRING_ARRAY,
+                            "removed_milestones")));
 }
 
 bool PorchlightProgress::complete_milestone(
@@ -333,76 +466,7 @@ Error PorchlightProgress::save_progress() {
 }
 
 Error PorchlightProgress::load_progress() {
-    Ref<ConfigFile> config;
-    config.instantiate();
-
-    const Error load_error =
-            config->load(SAVE_PATH);
-
-    if (load_error == ERR_FILE_NOT_FOUND) {
-        completed_lookup.clear();
-        completed_milestones.clear();
-
-        return OK;
-    }
-
-    if (load_error != OK) {
-        return load_error;
-    }
-
-    const Variant saved_value =
-            config->get_value(
-                    SAVE_SECTION,
-                    SAVE_KEY,
-                    Array());
-
-    if (saved_value.get_type() !=
-            Variant::ARRAY) {
-        return ERR_INVALID_DATA;
-    }
-
-    const Array saved_milestones =
-            saved_value;
-
-    completed_lookup.clear();
-    completed_milestones.clear();
-
-    for (int index = 0;
-            index < saved_milestones.size();
-            index++) {
-        const Variant entry =
-                saved_milestones[index];
-
-        if (entry.get_type() !=
-                        Variant::STRING &&
-                entry.get_type() !=
-                        Variant::STRING_NAME) {
-            continue;
-        }
-
-        const String milestone_text =
-                String(entry).strip_edges();
-
-        if (milestone_text.is_empty()) {
-            continue;
-        }
-
-        const StringName milestone =
-                milestone_text;
-
-        if (completed_lookup.has(
-                    milestone)) {
-            continue;
-        }
-
-        completed_lookup.insert(
-                milestone);
-
-        completed_milestones.push_back(
-                milestone);
-    }
-
-    return OK;
+    return _load_progress(true);
 }
 
 String PorchlightProgress::

@@ -7,6 +7,7 @@
 		The global Porchlight milestone-state service.
 Completed milestones are stored persistently in completion order and automatically loaded when the singleton is created. Milestone names are normalized by removing leading and trailing whitespace.
 Use [method complete_milestone] and [method remove_milestone] for individual changes. Use [method complete_milestones] and [method remove_milestones] to apply an ordered batch with one save operation.
+Calling [method load_progress] at runtime replaces the active state from disk and emits [signal progress_reloaded] when the loaded state differs from the previous state. The singleton's initial constructor load is silent.
 Progress is stored at [code]user://porchlight_progress.cfg[/code].
 	</description>
 	<tutorials>
@@ -72,6 +73,8 @@ Returns [code]false[/code] when the normalized milestone name is empty.
 				Reloads completed milestones from the progress save file.
 Returns [constant OK] when loading succeeds. A missing save file is treated as empty progress and also returns [constant OK].
 Empty entries, unsupported entry types, and duplicate milestone names inside an otherwise valid milestone array are ignored.
+If the loaded state differs from the active state, the full replacement is applied before [signal progress_reloaded] is emitted. An identical reload does not emit the signal.
+If loading or validation fails, the active milestone state is preserved and no reload signal is emitted.
 			</description>
 		</method>
 		<method name="remove_milestone">
@@ -120,6 +123,16 @@ Batch removal emits this signal once per changed milestone, after the entire bat
 		<signal name="milestones_cleared">
 			<description>
 				Emitted when [method clear_milestones] removes one or more completed milestones.
+			</description>
+		</signal>
+		<signal name="progress_reloaded">
+			<param index="0" name="added_milestones" type="PackedStringArray" />
+			<param index="1" name="removed_milestones" type="PackedStringArray" />
+			<description>
+				Emitted after [method load_progress] successfully replaces the active state with a different saved state.
+[param added_milestones] contains milestones present in the loaded state but absent from the previous state, in loaded-file order.
+[param removed_milestones] contains milestones present in the previous state but absent from the loaded state, in previous completion order.
+The complete loaded state has already been applied when this signal is emitted. Identical, failed, and initial constructor loads do not emit this signal.
 			</description>
 		</signal>
 	</signals>
