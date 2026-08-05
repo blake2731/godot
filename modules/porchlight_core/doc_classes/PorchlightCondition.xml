@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightCondition" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
 <brief_description>
-Tests whether a Porchlight milestone is complete.
+Tests one or more persistent Porchlight milestones.
 </brief_description>
 <description>
-A reusable condition that checks the persistent milestone state stored by [PorchlightProgress].
-By default, the condition is met when [member milestone] is complete. Enable [member inverted] to make the condition met while the milestone is not complete.
-An empty milestone is always considered invalid and causes [method is_met] to return [code]false[/code].
+A reusable condition that checks milestone state stored by [PorchlightProgress].
+[member match_mode] determines whether the condition checks the single [member milestone], requires all entries in [member milestones], or accepts any entry in [member milestones].
+Enable [member inverted] to negate the final result. Invalid conditions always return [code]false[/code], even when inverted.
 </description>
 <tutorials>
 </tutorials>
@@ -14,25 +14,63 @@ An empty milestone is always considered invalid and causes [method is_met] to re
 <method name="get_description" qualifiers="const">
 <return type="String" />
 <description>
-Returns a readable description of this condition.
-If no milestone is selected, returns [code]No milestone selected.[/code].
+Returns a readable description of the configured condition.
+Invalid single conditions return [code]No milestone selected.[/code]. Invalid composite conditions return [code]No milestones selected.[/code].
 </description>
 </method>
 <method name="is_met" qualifiers="const">
 <return type="bool" />
 <description>
-Returns [code]true[/code] when the configured milestone state satisfies this condition.
-When [member inverted] is [code]false[/code], the milestone must be complete. When [member inverted] is [code]true[/code], the milestone must not be complete.
-Returns [code]false[/code] if [member milestone] is empty or the [PorchlightProgress] singleton is unavailable.
+Returns whether the current persistent milestone state satisfies this condition.
+In [constant MATCH_SINGLE] mode, [member milestone] must be complete. In [constant MATCH_ALL] mode, every entry in [member milestones] must be complete. In [constant MATCH_ANY] mode, at least one entry in [member milestones] must be complete.
+When [member inverted] is [code]true[/code], the aggregate result is negated. An inverted [constant MATCH_ALL] condition is therefore met when at least one configured milestone is incomplete. An inverted [constant MATCH_ANY] condition is met when none of the configured milestones are complete.
+Returns [code]false[/code] if the condition is invalid or the [PorchlightProgress] singleton is unavailable.
+</description>
+</method>
+<method name="is_valid" qualifiers="const">
+<return type="bool" />
+<description>
+Returns whether this condition has the milestone data required by its current [member match_mode].
+[constant MATCH_SINGLE] requires a nonempty [member milestone]. [constant MATCH_ALL] and [constant MATCH_ANY] require at least one normalized entry in [member milestones].
+</description>
+</method>
+<method name="references_milestone" qualifiers="const">
+<return type="bool" />
+<param index="0" name="milestone" type="StringName" />
+<description>
+Returns whether this condition observes [param milestone].
+Leading and trailing whitespace is removed from [param milestone] before comparison. In [constant MATCH_SINGLE] mode, it is compared with [member milestone]. In composite modes, it is searched for in [member milestones].
+Returns [code]false[/code] for an empty normalized milestone name.
 </description>
 </method>
 </methods>
 <members>
 <member name="inverted" type="bool" setter="set_inverted" getter="is_inverted" default="false">
-If [code]true[/code], the condition is met when [member milestone] is not complete.
+If [code]true[/code], negates the final result produced by [member match_mode].
+Invalid conditions remain unmet rather than becoming true through inversion.
+</member>
+<member name="match_mode" type="int" setter="set_match_mode" getter="get_match_mode" enum="PorchlightCondition.MatchMode" default="0">
+Determines how milestone state is evaluated.
+[constant MATCH_SINGLE] uses [member milestone]. [constant MATCH_ALL] and [constant MATCH_ANY] use [member milestones].
 </member>
 <member name="milestone" type="StringName" setter="set_milestone" getter="get_milestone" default="&amp;&quot;&quot;">
-The milestone checked by this condition. Leading and trailing whitespace is removed when assigned.
+The milestone checked in [constant MATCH_SINGLE] mode.
+Leading and trailing whitespace is removed when assigned. This property is ignored by [constant MATCH_ALL] and [constant MATCH_ANY].
+</member>
+<member name="milestones" type="PackedStringArray" setter="set_milestones" getter="get_milestones" default="PackedStringArray()">
+The milestones checked in [constant MATCH_ALL] and [constant MATCH_ANY] modes.
+Assigned entries are trimmed, empty entries are removed, and duplicate names are discarded while preserving their first occurrence. This property is ignored by [constant MATCH_SINGLE].
 </member>
 </members>
+<constants>
+<constant name="MATCH_SINGLE" value="0" enum="MatchMode">
+Checks whether the single [member milestone] is complete.
+</constant>
+<constant name="MATCH_ALL" value="1" enum="MatchMode">
+Checks whether every entry in [member milestones] is complete.
+</constant>
+<constant name="MATCH_ANY" value="2" enum="MatchMode">
+Checks whether at least one entry in [member milestones] is complete.
+</constant>
+</constants>
 </class>
