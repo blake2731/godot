@@ -274,23 +274,9 @@ bool PorchlightAction::execute() {
         return false;
     }
 
-    PackedStringArray target_milestones;
-
     if (target_mode == TARGET_SINGLE) {
-        target_milestones.push_back(
-                String(milestone).strip_edges());
-    } else {
-        target_milestones =
-                _get_normalized_milestones();
-    }
-
-    bool any_changed = false;
-
-    for (int index = 0;
-            index < target_milestones.size();
-            index++) {
         const StringName target_milestone =
-                target_milestones[index];
+                String(milestone).strip_edges();
 
         bool changed = false;
 
@@ -308,9 +294,42 @@ bool PorchlightAction::execute() {
             } break;
         }
 
-        if (changed) {
-            any_changed = true;
-        }
+        emit_signal(
+                "executed",
+                target_milestone,
+                changed);
+
+        return changed;
+    }
+
+    const PackedStringArray target_milestones =
+            _get_normalized_milestones();
+
+    PackedStringArray changed_milestones;
+
+    switch (operation) {
+        case OPERATION_COMPLETE: {
+            changed_milestones =
+                    progress->complete_milestones(
+                            target_milestones);
+        } break;
+
+        case OPERATION_REMOVE: {
+            changed_milestones =
+                    progress->remove_milestones(
+                            target_milestones);
+        } break;
+    }
+
+    for (int index = 0;
+            index < target_milestones.size();
+            index++) {
+        const StringName target_milestone =
+                target_milestones[index];
+
+        const bool changed =
+                changed_milestones.has(
+                        target_milestones[index]);
 
         emit_signal(
                 "executed",
@@ -318,7 +337,7 @@ bool PorchlightAction::execute() {
                 changed);
     }
 
-    return any_changed;
+    return !changed_milestones.is_empty();
 }
 
 String PorchlightAction::get_description() const {

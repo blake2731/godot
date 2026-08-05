@@ -17,6 +17,34 @@ constexpr char SAVE_KEY[] =
 
 } // namespace
 
+PackedStringArray
+PorchlightProgress::_normalize_milestones(
+        const PackedStringArray &p_milestones)
+        const {
+    PackedStringArray normalized_milestones;
+
+    for (int index = 0;
+            index < p_milestones.size();
+            index++) {
+        const String normalized_text =
+                p_milestones[index].strip_edges();
+
+        if (normalized_text.is_empty()) {
+            continue;
+        }
+
+        if (normalized_milestones.has(
+                    normalized_text)) {
+            continue;
+        }
+
+        normalized_milestones.push_back(
+                normalized_text);
+    }
+
+    return normalized_milestones;
+}
+
 PorchlightProgress::PorchlightProgress() {
     const Error load_error = load_progress();
 
@@ -40,10 +68,24 @@ void PorchlightProgress::_bind_methods() {
 
     ClassDB::bind_method(
             D_METHOD(
+                    "complete_milestones",
+                    "milestones"),
+            &PorchlightProgress::
+                    complete_milestones);
+
+    ClassDB::bind_method(
+            D_METHOD(
                     "remove_milestone",
                     "milestone"),
             &PorchlightProgress::
                     remove_milestone);
+
+    ClassDB::bind_method(
+            D_METHOD(
+                    "remove_milestones",
+                    "milestones"),
+            &PorchlightProgress::
+                    remove_milestones);
 
     ClassDB::bind_method(
             D_METHOD(
@@ -99,22 +141,48 @@ void PorchlightProgress::_bind_methods() {
 
 bool PorchlightProgress::complete_milestone(
         const StringName &p_milestone) {
-    const String milestone_text =
-            String(p_milestone).strip_edges();
+    PackedStringArray requested_milestones;
 
-    if (milestone_text.is_empty()) {
-        return false;
+    requested_milestones.push_back(
+            String(p_milestone));
+
+    return !complete_milestones(
+                    requested_milestones)
+                    .is_empty();
+}
+
+PackedStringArray
+PorchlightProgress::complete_milestones(
+        const PackedStringArray &p_milestones) {
+    const PackedStringArray
+            normalized_milestones =
+                    _normalize_milestones(
+                            p_milestones);
+
+    PackedStringArray changed_milestones;
+
+    for (int index = 0;
+            index < normalized_milestones.size();
+            index++) {
+        const StringName milestone =
+                normalized_milestones[index];
+
+        if (completed_lookup.has(milestone)) {
+            continue;
+        }
+
+        completed_lookup.insert(milestone);
+
+        completed_milestones.push_back(
+                milestone);
+
+        changed_milestones.push_back(
+                normalized_milestones[index]);
     }
 
-    const StringName milestone =
-            milestone_text;
-
-    if (completed_lookup.has(milestone)) {
-        return false;
+    if (changed_milestones.is_empty()) {
+        return changed_milestones;
     }
-
-    completed_lookup.insert(milestone);
-    completed_milestones.push_back(milestone);
 
     const Error save_error =
             save_progress();
@@ -122,34 +190,65 @@ bool PorchlightProgress::complete_milestone(
     if (save_error != OK) {
         ERR_PRINT(
                 "PorchlightProgress could not save "
-                "the completed milestone.");
+                "the completed milestones.");
     }
 
-    emit_signal(
-            "milestone_completed",
-            milestone);
+    for (int index = 0;
+            index < changed_milestones.size();
+            index++) {
+        emit_signal(
+                "milestone_completed",
+                StringName(
+                        changed_milestones[index]));
+    }
 
-    return true;
+    return changed_milestones;
 }
 
 bool PorchlightProgress::remove_milestone(
         const StringName &p_milestone) {
-    const String milestone_text =
-            String(p_milestone).strip_edges();
+    PackedStringArray requested_milestones;
 
-    if (milestone_text.is_empty()) {
-        return false;
+    requested_milestones.push_back(
+            String(p_milestone));
+
+    return !remove_milestones(
+                    requested_milestones)
+                    .is_empty();
+}
+
+PackedStringArray
+PorchlightProgress::remove_milestones(
+        const PackedStringArray &p_milestones) {
+    const PackedStringArray
+            normalized_milestones =
+                    _normalize_milestones(
+                            p_milestones);
+
+    PackedStringArray changed_milestones;
+
+    for (int index = 0;
+            index < normalized_milestones.size();
+            index++) {
+        const StringName milestone =
+                normalized_milestones[index];
+
+        if (!completed_lookup.has(milestone)) {
+            continue;
+        }
+
+        completed_lookup.erase(milestone);
+
+        completed_milestones.erase(
+                milestone);
+
+        changed_milestones.push_back(
+                normalized_milestones[index]);
     }
 
-    const StringName milestone =
-            milestone_text;
-
-    if (!completed_lookup.has(milestone)) {
-        return false;
+    if (changed_milestones.is_empty()) {
+        return changed_milestones;
     }
-
-    completed_lookup.erase(milestone);
-    completed_milestones.erase(milestone);
 
     const Error save_error =
             save_progress();
@@ -157,14 +256,19 @@ bool PorchlightProgress::remove_milestone(
     if (save_error != OK) {
         ERR_PRINT(
                 "PorchlightProgress could not save "
-                "the removed milestone.");
+                "the removed milestones.");
     }
 
-    emit_signal(
-            "milestone_removed",
-            milestone);
+    for (int index = 0;
+            index < changed_milestones.size();
+            index++) {
+        emit_signal(
+                "milestone_removed",
+                StringName(
+                        changed_milestones[index]));
+    }
 
-    return true;
+    return changed_milestones;
 }
 
 bool PorchlightProgress::is_complete(
