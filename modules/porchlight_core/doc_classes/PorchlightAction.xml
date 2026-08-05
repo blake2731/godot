@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PorchlightAction" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
 <brief_description>
-Completes or removes a Porchlight milestone.
+Completes or removes one or more Porchlight milestones.
 </brief_description>
 <description>
 A reusable action that changes persistent milestone state through [PorchlightProgress].
-Use [member operation] to choose whether [member milestone] is completed or removed when [method execute] is called.
-Executing an action that would not change the current milestone state returns [code]false[/code].
+[member target_mode] determines whether the action operates on the single [member milestone] or every entry in [member milestones]. [member operation] determines whether those targets are completed or removed.
+[method execute] processes multiple targets in their configured order and returns [code]true[/code] when at least one target changes persistent progress.
 </description>
 <tutorials>
 </tutorials>
@@ -14,31 +14,42 @@ Executing an action that would not change the current milestone state returns [c
 <method name="execute">
 <return type="bool" />
 <description>
-Performs the configured [member operation] on [member milestone].
-Returns [code]true[/code] if the persistent milestone state changed. Returns [code]false[/code] if the milestone is empty, the requested state was already active, or the [PorchlightProgress] singleton is unavailable.
-Emits [signal executed] after a valid milestone operation is attempted.
+Performs the configured [member operation] on each target selected by [member target_mode].
+In [constant TARGET_SINGLE] mode, [member milestone] is processed once. In [constant TARGET_MULTIPLE] mode, every normalized entry in [member milestones] is processed in array order.
+Emits [signal executed] once for every attempted target. Returns [code]true[/code] when at least one target changes persistent milestone state.
+Returns [code]false[/code] when the action is invalid, every target is already in the requested state, or the [PorchlightProgress] singleton is unavailable.
 </description>
 </method>
 <method name="get_description" qualifiers="const">
 <return type="String" />
 <description>
-Returns a readable description of the configured operation and milestone.
-If no milestone is selected, returns [code]No milestone selected.[/code].
+Returns a readable description of the configured operation and its active targets.
+Invalid single-target actions return [code]No milestone selected.[/code]. Invalid multiple-target actions return [code]No milestones selected.[/code].
 </description>
 </method>
 <method name="is_valid" qualifiers="const">
 <return type="bool" />
 <description>
-Returns [code]true[/code] if [member milestone] contains a nonempty milestone name.
+Returns whether this action contains the target data required by its current [member target_mode].
+[constant TARGET_SINGLE] requires a nonempty [member milestone]. [constant TARGET_MULTIPLE] requires at least one normalized entry in [member milestones].
 </description>
 </method>
 </methods>
 <members>
 <member name="milestone" type="StringName" setter="set_milestone" getter="get_milestone" default="&amp;&quot;&quot;">
-The milestone changed by this action. Leading and trailing whitespace is removed when assigned.
+The milestone changed in [constant TARGET_SINGLE] mode.
+Leading and trailing whitespace is removed when assigned. This property is ignored by [constant TARGET_MULTIPLE].
+</member>
+<member name="milestones" type="PackedStringArray" setter="set_milestones" getter="get_milestones" default="PackedStringArray()">
+The ordered milestones changed in [constant TARGET_MULTIPLE] mode.
+Assigned entries are trimmed, empty entries are removed, and duplicate names are discarded while preserving their first occurrence. This property is ignored by [constant TARGET_SINGLE].
 </member>
 <member name="operation" type="int" setter="set_operation" getter="get_operation" enum="PorchlightAction.Operation" default="0">
-The operation performed by [method execute].
+The progress operation performed on every active target by [method execute].
+</member>
+<member name="target_mode" type="int" setter="set_target_mode" getter="get_target_mode" enum="PorchlightAction.TargetMode" default="0">
+Determines whether [method execute] uses [member milestone] or [member milestones].
+Changing this property updates the Inspector without clearing the inactive target values.
 </member>
 </members>
 <signals>
@@ -46,17 +57,23 @@ The operation performed by [method execute].
 <param index="0" name="milestone" type="StringName" />
 <param index="1" name="changed" type="bool" />
 <description>
-Emitted after an operation is attempted on a valid [param milestone].
-[param changed] is [code]true[/code] when the persistent milestone state changed.
+Emitted after the configured operation is attempted on [param milestone].
+In [constant TARGET_MULTIPLE] mode, this signal is emitted once per target in configured order. [param changed] is [code]true[/code] only when that individual target changed persistent milestone state.
 </description>
 </signal>
 </signals>
 <constants>
 <constant name="OPERATION_COMPLETE" value="0" enum="Operation">
-Completes [member milestone] when [method execute] is called.
+Completes every active target when [method execute] is called.
 </constant>
 <constant name="OPERATION_REMOVE" value="1" enum="Operation">
-Removes [member milestone] when [method execute] is called.
+Removes every active target when [method execute] is called.
+</constant>
+<constant name="TARGET_SINGLE" value="0" enum="TargetMode">
+Uses the single [member milestone] as the action target.
+</constant>
+<constant name="TARGET_MULTIPLE" value="1" enum="TargetMode">
+Uses every normalized entry in [member milestones] as an ordered action target.
 </constant>
 </constants>
 </class>
